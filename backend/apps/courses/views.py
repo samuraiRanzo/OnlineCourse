@@ -44,6 +44,14 @@ class CourseViewSet(viewsets.ModelViewSet):
         Lesson.objects.bulk_update(lessons.values(), ['order'])
         return Response(LessonSerializer(course.lessons.order_by('order'), many=True).data)
 
+    @action(detail=True, methods=['get'], url_path='all-questions')
+    def all_questions(self, request, pk=None):
+        """Returns all questions for all lessons in this course."""
+        from .models import LessonQuestion
+        questions = LessonQuestion.objects.filter(lesson__course_id=pk).select_related('author', 'lesson')
+        serializer = LessonQuestionSerializer(questions, many=True)
+        return Response(serializer.data)
+
 
 class LessonViewSet(viewsets.ModelViewSet):
     serializer_class = LessonSerializer

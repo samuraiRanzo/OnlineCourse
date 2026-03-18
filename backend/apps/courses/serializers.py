@@ -51,7 +51,7 @@ class CourseSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Course
         fields = ['id', 'title', 'description', 'icon',
-                  'attendance_threshold', 'created_at', 'lessons', 'lesson_count']
+                  'attendance_threshold', 'created_at', 'lessons', 'lesson_count', 'exam']
         read_only_fields = ['id', 'created_at']
 
 
@@ -109,7 +109,7 @@ class LessonAnswerSerializer(serializers.ModelSerializer):
         model  = LessonAnswer
         fields = ['id', 'question', 'author', 'author_name', 'is_teacher',
                   'body', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'author', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'author', 'created_at', 'updated_at','question']
 
     def get_is_teacher(self, obj):
         return obj.author.role == 'admin'
@@ -125,4 +125,4 @@ class LessonQuestionSerializer(serializers.ModelSerializer):
         fields = ['id', 'lesson', 'author', 'author_name',
                   'body', 'is_resolved', 'created_at', 'updated_at',
                   'answers', 'answer_count']
-        read_only_fields = ['id', 'author', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'author', 'created_at', 'updated_at','lesson']

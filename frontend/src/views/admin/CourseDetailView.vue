@@ -174,6 +174,64 @@
           <div class="notice-card-body text-muted">{{ n.body }}</div>
         </div>
       </div>
+          <div v-if="activeTab === 'qa'">
+      <div class="section-header">
+        <div class="section-title">Course-Wide Q&A</div>
+      </div>
+
+      <div v-if="qaStore.loading" class="text-muted text-sm">Loading all course questions...</div>
+
+      <EmptyState v-else-if="!qaStore.questions.length" icon="💬" title="No questions yet" message="Student questions from all lessons will appear here." />
+
+      <div v-else class="qa-list">
+        <div v-for="q in qaStore.questions" :key="q.id" class="qa-question" :class="{ resolved: q.is_resolved }">
+
+          <div class="qa-question-header">
+            <div class="qa-avatar">{{ q.author_name?.charAt(0).toUpperCase() }}</div>
+            <div style="flex:1">
+              <div style="font-size:11px; font-weight:700; color:var(--lf-orange); text-transform:uppercase">
+                Lesson: {{ q.lesson_title || 'Video/Text Lesson' }}
+              </div>
+              <div style="font-size:14px; font-weight:600">{{ q.author_name }}</div>
+              <div class="text-muted text-sm">{{ formatDate(q.created_at) }}</div>
+            </div>
+
+            <div style="display:flex; gap:6px">
+              <button class="btn btn-ghost btn-sm" @click="handleToggleResolved(q)">
+                {{ q.is_resolved ? 'Unresolve' : 'Mark Resolved' }}
+              </button>
+            </div>
+          </div>
+
+          <div class="qa-question-body">{{ q.body }}</div>
+
+          <div class="qa-answers">
+            <div v-for="a in q.answers" :key="a.id" class="qa-answer" :class="{ 'teacher-answer': a.is_teacher }">
+              <div class="qa-answer-header">
+                <div class="qa-avatar sm" :style="a.is_teacher ? 'background:var(--lf-black)' : ''">
+                  {{ a.author_name?.charAt(0).toUpperCase() }}
+                </div>
+                <div style="flex:1">
+                  <div style="font-size:13px; font-weight:600">
+                    {{ a.author_name }}
+                    <span v-if="a.is_teacher" class="badge badge-black" style="font-size:9px; margin-left:6px">Teacher</span>
+                  </div>
+                  <div class="text-muted text-sm">{{ formatDate(a.created_at) }}</div>
+                </div>
+              </div>
+              <div class="qa-answer-body">{{ a.body }}</div>
+            </div>
+
+            <div class="qa-reply-compose">
+              <textarea v-model="replyText[q.id]" class="qa-textarea sm" placeholder="Type your official answer here..." rows="2" />
+              <button class="btn btn-secondary btn-sm" style="margin-top:6px" :disabled="!replyText[q.id]?.trim()" @click="handlePostAnswer(q.id)">
+                ✓ Post Official Answer
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     </div>
 
     <!-- Add / Edit Lesson Modal -->
@@ -349,6 +407,7 @@ import { useCoursesStore }        from '@/stores/courses'
 import { useAttendanceStore }     from '@/stores/attendance'
 import { useAnnouncementsStore }  from '@/stores/announcements'
 import { useExamsStore }          from '@/stores/exams'
+import { useQaStore }          from '@/stores/qa'
 
 const route     = useRoute()
 const router    = useRouter()
@@ -357,6 +416,7 @@ const courses   = useCoursesStore()
 const attStore  = useAttendanceStore()
 const annStore  = useAnnouncementsStore()
 const exStore   = useExamsStore()
+const qaStore   = useQaStore()
 
 const course    = computed(() => courses.current)
 const sessions  = computed(() => attStore.sessions)
@@ -368,6 +428,7 @@ const tabs = [
   { key: 'exam',          label: 'Exam Builder' },
   { key: 'sessions',      label: 'Sessions & Attendance' },
   { key: 'announcements', label: 'Announcements' },
+  { key: 'qa',            label: 'Q&A' },
 ]
 
 // ── Lesson ───────────────────────────────────────────────────
@@ -377,7 +438,7 @@ const saving         = ref(false)
 const isDragging     = ref(false)
 const fileInput      = ref(null)
 const uploadProgress = computed(() => courses.uploadProgress)
-
+const replyText       = reactive({})  // For storing reply text for each question in the Q&A tab
 // ── Drag-to-reorder state ─────────────────────────────────────
 // localLessons is a local copy we mutate during drag so the
 // list updates visually before the API call is made.
@@ -435,7 +496,9 @@ function onDragEnd() {
   draggingId.value = null
   dragOverId.value = null
 }
-
+async function handleToggleResolved(q) {
+  await qaStore.resolveQuestion(route.params.id, q.lesson, q.id, !q.is_resolved)
+}
 async function saveOrder() {
   reordering.value = true
   try {
@@ -637,6 +700,7 @@ onMounted(async () => {
   await Promise.all([
     attStore.fetchSessions(id),
     annStore.fetchAnnouncements(id),
+    qaStore.fetchCourseQuestions(id),
     exStore.fetchExamByCourse(id).then(exam => {
       if (exam) Object.assign(examDraft, {
         title:       exam.title,
@@ -671,6 +735,48 @@ onMounted(async () => {
 .notice-card.pinned { border-color: var(--lf-orange); }
 .notice-card-header { padding: 14px 18px; display: flex; align-items: center; gap: 10px; }
 .notice-card-body   { padding: 0 18px 14px; font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
+/* ── Q&A Section Layout ── */
+.qa-section  { margin-top: 20px; }
+.qa-count    {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; background: var(--lf-orange); color: #fff;
+  border-radius: 50%; font-size: 12px; font-weight: 700;
+  margin-left: 8px; font-family: var(--lf-font-body);
+}
+
+.qa-list     { display: flex; flex-direction: column; gap: 16px; }
+
+.qa-question { border: 1.5px solid var(--lf-gray-200); border-radius: 8px; overflow: hidden; background: var(--lf-white); }
+.qa-question.resolved { border-color: #25a244; }
+.qa-question-header { display: flex; align-items: center; gap: 12px; padding: 14px 18px; background: var(--lf-gray-100); border-bottom: 1px solid var(--lf-gray-200); }
+.qa-question-body   { padding: 16px 18px; font-size: 14px; line-height: 1.7; white-space: pre-wrap; color: var(--lf-black); }
+
+/* ── Answers Section ── */
+.qa-answers  { border-top: 1px solid var(--lf-gray-200); background: #fafafa; }
+.qa-answer   { padding: 14px 18px; border-bottom: 1px solid var(--lf-gray-200); }
+.qa-answer:last-child { border-bottom: none; }
+.qa-answer.teacher-answer { background: #fffdf8; border-left: 4px solid var(--lf-orange); }
+
+.qa-answer-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.qa-answer-body   { font-size: 14px; line-height: 1.6; white-space: pre-wrap; color: var(--lf-gray-600); padding-left: 42px; }
+
+/* ── UI Elements ── */
+.qa-avatar {
+  width: 32px; height: 32px; border-radius: 50%; background: var(--lf-orange);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.qa-avatar.sm { width: 26px; height: 26px; font-size: 11px; }
+
+/* ── Compose / Reply Area ── */
+.qa-reply-compose { padding: 16px 18px; background: var(--lf-gray-100); border-top: 1px solid var(--lf-gray-200); }
+.qa-textarea {
+  width: 100%; padding: 12px; border: 2px solid var(--lf-gray-200);
+  border-radius: 6px; font-family: var(--lf-font-body); font-size: 14px;
+  resize: vertical; outline: none; background: var(--lf-white); transition: border-color .15s;
+}
+.qa-textarea:focus { border-color: var(--lf-orange); }
+.qa-textarea.sm    { font-size: 13px; min-height: 80px; }
 .code-box   { background: var(--lf-black); border-radius: 8px; padding: 28px; text-align: center; border: 2px solid var(--lf-orange); }
 .code-label { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #aaa; margin-bottom: 10px; }
 .code-val   { font-family: var(--lf-font-display); font-size: 56px; color: var(--lf-orange); letter-spacing: 10px; }

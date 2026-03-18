@@ -13,7 +13,17 @@ export const useQaStore = defineStore('qa', () => {
   function answerUrl(courseId, lessonId, questionId) {
     return `/courses/${courseId}/lessons/${lessonId}/questions/${questionId}/answers/`
   }
-
+    async function fetchCourseQuestions(courseId) {
+      loading.value = true;
+      try {
+        // This assumes your backend supports a ?course= query param on the questions endpoint
+        // If not, you may need to fetch lessons first and loop, or update the backend view.
+        const { data } = await api.get(`/courses/${courseId}/all-questions/`);
+        questions.value = data.results ?? data;
+      } finally {
+        loading.value = false;
+      }
+    }
   async function fetchQuestions(courseId, lessonId) {
     loading.value = true
     try {
@@ -72,6 +82,6 @@ export const useQaStore = defineStore('qa', () => {
   return {
     questions, loading,
     fetchQuestions, postQuestion, deleteQuestion, resolveQuestion,
-    postAnswer, deleteAnswer, clearQuestions,
+    postAnswer, deleteAnswer, clearQuestions,fetchCourseQuestions
   }
 })
