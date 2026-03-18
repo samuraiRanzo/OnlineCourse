@@ -1,0 +1,27 @@
+# ── Stage 1: build wheels ─────────────────────────────────────────────────────
+FROM python:3.12-slim AS builder
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential libpq-dev libjpeg-dev zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+COPY backend/requirements.txt .
+RUN pip install --upgrade pip && \
+    pip wheel --no-cache-dir --no-deps --wheel-dir /wheels -r requirements.txt
+
+# ── Stage 2: final image ──────────────────────────────────────────────────────
+FROM python:3.12-slim
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 libjpeg62-turbo ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /wheels /wheels
+RUN pip install --no-cache /wheels/*
+COPY backend/ .
+RUN mkdir -p /app/media /app/staticfiles
+EXPOSE 8000
+CMD ["gunicorn", "learnforge.wsgi:application", \
+     "--bind", "0.0.0.0:8000", \
+     "--workers", "3", \
+     "--timeout", "300", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-"]

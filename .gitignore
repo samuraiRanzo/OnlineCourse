@@ -1,0 +1,35 @@
+# ── Python / Django ───────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+venv/
+env/
+.venv/
+*.log
+db.sqlite3
+backend/media/
+backend/staticfiles/
+
+# ── Node / Vue ────────────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+
+# ── Environment — NEVER commit secrets ───────────────────────────────────────
+.env
+.env.*
+!.env.example
+!backend/.env.example
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+# (keep all docker files tracked — they are not secrets)
