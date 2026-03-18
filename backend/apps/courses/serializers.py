@@ -1,43 +1,31 @@
 from rest_framework import serializers
 from django.conf import settings
+from django.utils import timezone
 from .models import Course, Lesson, Enrollment, LessonCompletion, LessonQuestion, LessonAnswer
 
 
 class LessonSerializer(serializers.ModelSerializer):
-    # Absolute URL to the .m3u8 playlist — consumed directly by hls.js
     hls_url = serializers.SerializerMethodField()
 
     class Meta:
         model  = Lesson
         fields = [
             'id', 'title', 'type', 'content', 'video_url', 'order',
-            # self-hosted video
+            'status',
             'video_file', 'hls_path', 'hls_ready', 'hls_url',
         ]
         extra_kwargs = {
-            'video_file': {'write_only': True},  # don't expose raw file path to students
+            'video_file': {'write_only': True},
             'hls_path':   {'read_only': True},
             'hls_ready':  {'read_only': True},
         }
 
     def get_hls_url(self, obj):
-        """
-        Returns the full URL to the .m3u8 playlist.
-        - Supabase Storage: MEDIA_URL already contains the full CDN base URL
-          e.g. https://xxx.supabase.co/storage/v1/object/public/learnforge-media/
-          so we just concatenate hls_path.
-        - Local dev: build absolute URL from request.
-        """
         if not obj.hls_ready or not obj.hls_path:
             return None
-
         media_url = settings.MEDIA_URL
-
-        # Supabase Storage — MEDIA_URL is already a full https:// URL
         if media_url.startswith('http'):
             return f'{media_url.rstrip("/")}/{obj.hls_path}'
-
-        # Local dev — build absolute URL from the request
         request = self.context.get('request')
         if request:
             return request.build_absolute_uri(f'{media_url}{obj.hls_path}')
@@ -45,24 +33,51 @@ class LessonSerializer(serializers.ModelSerializer):
 
 
 class CourseSerializer(serializers.ModelSerializer):
-    lessons      = LessonSerializer(many=True, read_only=True)
-    lesson_count = serializers.IntegerField(source='lessons.count', read_only=True)
+    lessons      = serializers.SerializerMethodField()
+    lesson_count = serializers.SerializerMethodField()
 
     class Meta:
         model  = Course
-        fields = ['id', 'title', 'description', 'icon',
-                  'attendance_threshold', 'created_at', 'lessons', 'lesson_count', 'exam']
-        read_only_fields = ['id', 'created_at']
+        fields = [
+            'id', 'title', 'description', 'icon',
+            'attendance_threshold', 'status', 'published_at',
+            'created_at', 'lessons', 'lesson_count','exam'
+        ]
+        read_only_fields = ['id', 'created_at', 'published_at']
+
+    def get_lessons(self, obj):
+        request = self.context.get('request')
+        qs = obj.lessons.all()
+        # Students only see published lessons
+        if request and request.user.is_authenticated and request.user.is_student:
+            qs = qs.filter(status='published')
+        return LessonSerializer(qs, many=True, context=self.context).data
+
+    def get_lesson_count(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated and request.user.is_student:
+            return obj.lessons.filter(status='published').count()
+        return obj.lessons.count()
 
 
 class CourseListSerializer(serializers.ModelSerializer):
-    lesson_count = serializers.IntegerField(source='lessons.count', read_only=True)
+    lesson_count         = serializers.SerializerMethodField()
+    published_lesson_count = serializers.SerializerMethodField()
 
     class Meta:
         model  = Course
-        fields = ['id', 'title', 'description', 'icon',
-                  'attendance_threshold', 'created_at', 'lesson_count']
-        read_only_fields = ['id', 'created_at']
+        fields = [
+            'id', 'title', 'description', 'icon',
+            'attendance_threshold', 'status', 'published_at',
+            'created_at', 'lesson_count', 'published_lesson_count','exam'
+        ]
+        read_only_fields = ['id', 'created_at', 'published_at']
+
+    def get_lesson_count(self, obj):
+        return obj.lessons.count()
+
+    def get_published_lesson_count(self, obj):
+        return obj.lessons.filter(status='published').count()
 
 
 class EnrollmentSerializer(serializers.ModelSerializer):
@@ -86,7 +101,7 @@ class EnrollmentSerializer(serializers.ModelSerializer):
         return list(obj.completions.values_list('lesson_id', flat=True))
 
     def get_lesson_completion_pct(self, obj):
-        total = obj.course.lessons.count()
+        total = obj.course.lessons.filter(status='published').count()
         if total == 0:
             return 0
         return round((obj.completions.count() / total) * 100)

@@ -1,7 +1,8 @@
 from rest_framework import viewsets, status
-from rest_framework.decorators import action, api_view, permission_classes as pc
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django.utils import timezone
 
 from apps.users.permissions import IsAdmin
 from .models import Course, Lesson, Enrollment, LessonCompletion, LessonQuestion, LessonAnswer
@@ -16,7 +17,8 @@ class CourseViewSet(viewsets.ModelViewSet):
     queryset = Course.objects.prefetch_related('lessons').all()
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reorder_lessons']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy',
+                           'reorder_lessons', 'publish', 'unpublish']:
             return [IsAdmin()]
         return [IsAuthenticated()]
 
@@ -26,13 +28,42 @@ class CourseViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
         if self.request.user.is_student:
+            # Students only see published courses they are enrolled in
             enrolled_ids = self.request.user.enrollments.values_list('course_id', flat=True)
-            qs = qs.filter(id__in=enrolled_ids)
+            qs = qs.filter(id__in=enrolled_ids, status='published')
         return qs
+
+    # ── Publish / Unpublish ───────────────────────────────────────────────────
+
+    @action(detail=True, methods=['post'], url_path='publish')
+    def publish(self, request, pk=None):
+        """
+        Publishes a course. Sets published_at if this is the first time.
+        Returns the updated course object.
+        """
+        course = self.get_object()
+        if course.status == 'published':
+            return Response({'detail': 'Course is already published.'}, status=400)
+        course.status = 'published'
+        if not course.published_at:
+            course.published_at = timezone.now()
+        course.save(update_fields=['status', 'published_at'])
+        return Response(CourseSerializer(course, context={'request': request}).data)
+
+    @action(detail=True, methods=['post'], url_path='unpublish')
+    def unpublish(self, request, pk=None):
+        """Reverts a course to draft. Students immediately lose access."""
+        course = self.get_object()
+        if course.status == 'draft':
+            return Response({'detail': 'Course is already a draft.'}, status=400)
+        course.status = 'draft'
+        course.save(update_fields=['status'])
+        return Response(CourseSerializer(course, context={'request': request}).data)
+
+    # ── Reorder lessons ───────────────────────────────────────────────────────
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdmin], url_path='reorder-lessons')
     def reorder_lessons(self, request, pk=None):
-        """POST { "order": ["uuid1", "uuid2", ...] } — reorders lessons by index."""
         course  = self.get_object()
         ordered = request.data.get('order', [])
         if not isinstance(ordered, list):
@@ -55,22 +86,25 @@ class CourseViewSet(viewsets.ModelViewSet):
 
 class LessonViewSet(viewsets.ModelViewSet):
     serializer_class = LessonSerializer
-    # Must be multipart so DRF handles file uploads
     parser_classes   = [
         __import__('rest_framework.parsers', fromlist=['MultiPartParser']).MultiPartParser,
         __import__('rest_framework.parsers', fromlist=['JSONParser']).JSONParser,
     ]
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy',
+                           'publish', 'unpublish']:
             return [IsAdmin()]
         return [IsAuthenticated()]
 
     def get_queryset(self):
-        return Lesson.objects.filter(course_id=self.kwargs['course_pk']).order_by('order')
+        qs = Lesson.objects.filter(course_id=self.kwargs['course_pk']).order_by('order')
+        # Students only see published lessons
+        if self.request.user.is_student:
+            qs = qs.filter(status='published')
+        return qs
 
     def get_serializer_context(self):
-        # Pass request so hls_url can build absolute URLs
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
@@ -79,20 +113,38 @@ class LessonViewSet(viewsets.ModelViewSet):
         course     = Course.objects.get(pk=self.kwargs['course_pk'])
         last_order = course.lessons.count()
         lesson     = serializer.save(course=course, order=last_order)
-        # Kick off background transcoding if a video file was uploaded
         if lesson.type == 'video' and lesson.video_file:
             from .tasks import transcode_to_hls
             transcode_to_hls.delay(str(lesson.id))
 
     def perform_update(self, serializer):
         lesson = serializer.save()
-        # Re-transcode if a new video file was uploaded on edit
         if lesson.type == 'video' and 'video_file' in self.request.FILES:
             lesson.hls_ready = False
             lesson.hls_path  = ''
             lesson.save(update_fields=['hls_ready', 'hls_path'])
             from .tasks import transcode_to_hls
             transcode_to_hls.delay(str(lesson.id))
+
+    # ── Lesson-level publish / unpublish ──────────────────────────────────────
+
+    @action(detail=True, methods=['post'], url_path='publish')
+    def publish(self, request, course_pk=None, pk=None):
+        lesson = self.get_object()
+        if lesson.status == 'published':
+            return Response({'detail': 'Lesson is already published.'}, status=400)
+        lesson.status = 'published'
+        lesson.save(update_fields=['status'])
+        return Response(LessonSerializer(lesson, context={'request': request}).data)
+
+    @action(detail=True, methods=['post'], url_path='unpublish')
+    def unpublish(self, request, course_pk=None, pk=None):
+        lesson = self.get_object()
+        if lesson.status == 'draft':
+            return Response({'detail': 'Lesson is already a draft.'}, status=400)
+        lesson.status = 'draft'
+        lesson.save(update_fields=['status'])
+        return Response(LessonSerializer(lesson, context={'request': request}).data)
 
 
 class EnrollmentViewSet(viewsets.ModelViewSet):
@@ -127,7 +179,6 @@ class LessonCompletionViewSet(viewsets.ModelViewSet):
         return qs
 
     def create(self, request, *args, **kwargs):
-        # Idempotent — visiting a lesson twice doesn't create duplicate records
         obj, created = LessonCompletion.objects.get_or_create(
             enrollment_id=request.data.get('enrollment'),
             lesson_id=request.data.get('lesson'),
@@ -141,18 +192,7 @@ class LessonCompletionViewSet(viewsets.ModelViewSet):
 # ── Q&A ──────────────────────────────────────────────────────────────────
 
 class LessonQuestionViewSet(viewsets.ModelViewSet):
-    """
-    Questions posted by students on a specific lesson.
-    Nested under: /api/courses/<course_pk>/lessons/<lesson_pk>/questions/
-
-    Rules:
-    - Any enrolled student can POST a question
-    - All enrolled students + teacher can GET questions
-    - Only the author can edit their own question body
-    - Teacher can toggle is_resolved on any question
-    - Teacher and question author can delete
-    """
-    serializer_class = LessonQuestionSerializer
+    serializer_class  = LessonQuestionSerializer
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
 
     def get_queryset(self):
@@ -169,11 +209,8 @@ class LessonQuestionViewSet(viewsets.ModelViewSet):
 
     def partial_update(self, request, *args, **kwargs):
         question = self.get_object()
-        # Students can only edit their own question body
-        # Teacher can toggle is_resolved
         if request.user.is_student and question.author != request.user:
             return Response({'detail': 'You can only edit your own questions.'}, status=403)
-        # Students cannot set is_resolved
         if request.user.is_student and 'is_resolved' in request.data:
             return Response({'detail': 'Only the teacher can resolve questions.'}, status=403)
         return super().partial_update(request, *args, **kwargs)
@@ -186,15 +223,6 @@ class LessonQuestionViewSet(viewsets.ModelViewSet):
 
 
 class LessonAnswerViewSet(viewsets.ModelViewSet):
-    """
-    Answers to a LessonQuestion.
-    Nested under: /api/courses/<course_pk>/lessons/<lesson_pk>/questions/<question_pk>/answers/
-
-    Rules:
-    - Any enrolled student or teacher can POST an answer
-    - Only the author can edit their own answer
-    - Teacher and answer author can delete
-    """
     serializer_class  = LessonAnswerSerializer
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
 

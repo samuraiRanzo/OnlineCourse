@@ -1,14 +1,28 @@
 import uuid
 from django.db import models
+from django.utils import timezone
 from django.conf import settings
 
 
 class Course(models.Model):
+
+    class Status(models.TextChoices):
+        DRAFT     = 'draft',     'Draft'
+        PUBLISHED = 'published', 'Published'
+
     id                   = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title                = models.CharField(max_length=200)
     description          = models.TextField(blank=True)
     icon                 = models.CharField(max_length=10, default='📚')
     attendance_threshold = models.PositiveIntegerField(default=75)
+    status               = models.CharField(
+        max_length=10, choices=Status.choices, default=Status.DRAFT,
+        help_text='Only published courses are visible to students'
+    )
+    published_at         = models.DateTimeField(
+        null=True, blank=True,
+        help_text='Set automatically when status changes to published'
+    )
     created_at           = models.DateTimeField(auto_now_add=True)
     updated_at           = models.DateTimeField(auto_now=True)
 
@@ -19,11 +33,20 @@ class Course(models.Model):
     def __str__(self):
         return self.title
 
+    @property
+    def is_published(self):
+        return self.status == self.Status.PUBLISHED
+
 
 class Lesson(models.Model):
+
     class Type(models.TextChoices):
         TEXT  = 'text',  'Text'
         VIDEO = 'video', 'Video'
+
+    class Status(models.TextChoices):
+        DRAFT     = 'draft',     'Draft'
+        PUBLISHED = 'published', 'Published'
 
     id        = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     course    = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='lessons')
@@ -45,6 +68,10 @@ class Lesson(models.Model):
         default=False,
         help_text='True once FFmpeg transcoding is complete'
     )
+    status    = models.CharField(
+        max_length=10, choices=Status.choices, default=Status.DRAFT,
+        help_text='Only published lessons are visible to students'
+    )
     order     = models.PositiveIntegerField(default=0)
 
     class Meta:
@@ -53,6 +80,10 @@ class Lesson(models.Model):
 
     def __str__(self):
         return f'{self.course.title} — {self.title}'
+
+    @property
+    def is_published(self):
+        return self.status == self.Status.PUBLISHED
 
 
 class Enrollment(models.Model):

@@ -124,6 +124,45 @@ export const useCoursesStore = defineStore('courses', () => {
     return data
   }
 
+  // ── Publish / Unpublish — Course ───────────────────────────────────
+  async function publishCourse(courseId) {
+    const { data } = await api.post(`/courses/${courseId}/publish/`)
+    _patchCourse(courseId, data)
+    return data
+  }
+
+  async function unpublishCourse(courseId) {
+    const { data } = await api.post(`/courses/${courseId}/unpublish/`)
+    _patchCourse(courseId, data)
+    return data
+  }
+
+  function _patchCourse(courseId, updated) {
+    const idx = courses.value.findIndex(c => c.id === courseId)
+    if (idx > -1) courses.value[idx] = { ...courses.value[idx], ...updated }
+    if (current.value?.id === courseId) current.value = { ...current.value, ...updated }
+  }
+
+  // ── Publish / Unpublish — Lesson ────────────────────────────────────
+  async function publishLesson(courseId, lessonId) {
+    const { data } = await api.post(`/courses/${courseId}/lessons/${lessonId}/publish/`)
+    _patchLesson(courseId, lessonId, data)
+    return data
+  }
+
+  async function unpublishLesson(courseId, lessonId) {
+    const { data } = await api.post(`/courses/${courseId}/lessons/${lessonId}/unpublish/`)
+    _patchLesson(courseId, lessonId, data)
+    return data
+  }
+
+  function _patchLesson(courseId, lessonId, updated) {
+    if (current.value?.id === courseId) {
+      const idx = current.value.lessons.findIndex(l => l.id === lessonId)
+      if (idx > -1) current.value.lessons[idx] = { ...current.value.lessons[idx], ...updated }
+    }
+  }
+
   // ── Enrollments ────────────────────────────────────────────────────
   async function fetchEnrollments(params = {}) {
     const { data } = await api.get('/courses/enrollments/', { params })
@@ -156,7 +195,9 @@ export const useCoursesStore = defineStore('courses', () => {
     courses, current, enrollments, loading, uploadProgress,
     fetchCourses, fetchCourse,
     createCourse, updateCourse, deleteCourse,
+    publishCourse, unpublishCourse,
     createLesson, updateLesson, deleteLesson, reorderLessons,
+    publishLesson, unpublishLesson,
     fetchEnrollments, createEnrollment, deleteEnrollment,
     markLessonComplete,
   }

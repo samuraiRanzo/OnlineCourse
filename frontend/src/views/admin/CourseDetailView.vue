@@ -2,9 +2,22 @@
   <div>
     <AppTopbar>
       <template #actions>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;align-items:center">
           <button class="btn btn-ghost btn-sm" @click="$router.push('/courses')">← Back</button>
-          <button class="btn btn-danger btn-sm" @click="handleDelete">Delete Course</button>
+          <!-- Course publish/unpublish toggle -->
+          <div v-if="course" class="course-status-pill" :class="course.status">
+            {{ course.status === 'published' ? '✓ Published' : '✎ Draft' }}
+          </div>
+          <button
+            v-if="course"
+            class="btn btn-sm"
+            :class="course.status === 'published' ? 'btn-ghost' : 'btn-primary'"
+            :disabled="togglingCourse"
+            @click="handleToggleCourseStatus"
+          >
+            {{ togglingCourse ? '…' : course.status === 'published' ? 'Unpublish' : '🚀 Publish Course' }}
+          </button>
+          <button class="btn btn-danger btn-sm" @click="handleDelete">Delete</button>
         </div>
       </template>
     </AppTopbar>
@@ -20,7 +33,12 @@
       <!-- LESSONS TAB -->
       <div v-if="activeTab === 'lessons'">
         <div class="section-header">
-          <div class="section-title">Lessons ({{ course.lessons?.length ?? 0 }})</div>
+          <div class="section-title">
+            Lessons ({{ course.lessons?.length ?? 0 }})
+            <span class="text-muted text-sm" style="font-weight:400;margin-left:8px">
+              {{ publishedLessonCount }}/{{ course.lessons?.length ?? 0 }} published
+            </span>
+          </div>
           <div style="display:flex;align-items:center;gap:10px">
             <!-- Save order button — only visible when order has changed -->
             <button
@@ -75,7 +93,17 @@
                 </div>
               </div>
 
-              <div style="display:flex;gap:6px">
+              <div style="display:flex;gap:6px;align-items:center">
+                <!-- Status toggle -->
+                <button
+                  class="lesson-status-btn"
+                  :class="l.status"
+                  :disabled="togglingLesson === l.id"
+                  @click="handleToggleLessonStatus(l)"
+                  :title="l.status === 'published' ? 'Click to unpublish' : 'Click to publish'"
+                >
+                  {{ togglingLesson === l.id ? '…' : l.status === 'published' ? '✓ Live' : '✎ Draft' }}
+                </button>
                 <button class="btn btn-ghost btn-sm" @click="openEditLesson(l)">Edit</button>
                 <button class="btn btn-danger btn-sm" @click="handleDeleteLesson(l.id)">Del</button>
               </div>
@@ -422,6 +450,49 @@ const course    = computed(() => courses.current)
 const sessions  = computed(() => attStore.sessions)
 const announcements = computed(() => annStore.announcements)
 
+const publishedLessonCount = computed(() =>
+  course.value?.lessons?.filter(l => l.status === 'published').length ?? 0
+)
+
+const togglingCourse = ref(false)
+const togglingLesson = ref(null)
+
+async function handleToggleCourseStatus() {
+  if (!course.value) return
+  togglingCourse.value = true
+  try {
+    if (course.value.status === 'published') {
+      await courses.unpublishCourse(route.params.id)
+      toast.add({ severity: 'info', summary: 'Course moved to draft — students can no longer see it', life: 4000 })
+    } else {
+      await courses.publishCourse(route.params.id)
+      toast.add({ severity: 'success', summary: 'Course is now live for enrolled students', life: 4000 })
+    }
+  } catch {
+    toast.add({ severity: 'error', summary: 'Failed to update course status', life: 3000 })
+  } finally {
+    togglingCourse.value = false
+  }
+}
+
+async function handleToggleLessonStatus(lesson) {
+  togglingLesson.value = lesson.id
+  try {
+    if (lesson.status === 'published') {
+      await courses.unpublishLesson(route.params.id, lesson.id)
+      toast.add({ severity: 'info', summary: `"${lesson.title}" is now a draft`, life: 3000 })
+    } else {
+      await courses.publishLesson(route.params.id, lesson.id)
+      toast.add({ severity: 'success', summary: `"${lesson.title}" is now live`, life: 3000 })
+    }
+  } catch {
+    toast.add({ severity: 'error', summary: 'Failed to update lesson status', life: 3000 })
+  } finally {
+    await courses.fetchCourse(route.params.id)  // Refresh course to get updated lesson statuses
+    togglingLesson.value = null
+  }
+}
+
 const activeTab = ref('lessons')
 const tabs = [
   { key: 'lessons',       label: 'Lessons' },
@@ -718,6 +789,27 @@ onMounted(async () => {
 .tab  { padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; color: var(--lf-gray-600); transition: all .15s; }
 .tab:hover { color: var(--lf-black); }
 .tab.active { color: var(--lf-orange); border-bottom-color: var(--lf-orange); }
+
+/* Course status pill in topbar */
+.course-status-pill {
+  display: inline-flex; align-items: center; padding: 4px 12px;
+  border-radius: 20px; font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .4px;
+}
+.course-status-pill.draft     { background: var(--lf-gray-200); color: var(--lf-gray-600); }
+.course-status-pill.published { background: #e6f7ee; color: #25a244; }
+
+/* Per-lesson status toggle button */
+.lesson-status-btn {
+  padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;
+  cursor: pointer; border: 1.5px solid; transition: all .15s; white-space: nowrap;
+  text-transform: uppercase; letter-spacing: .3px;
+}
+.lesson-status-btn.draft     { background: var(--lf-gray-100); border-color: var(--lf-gray-200); color: var(--lf-gray-600); }
+.lesson-status-btn.draft:hover:not(:disabled) { background: var(--lf-orange-light); border-color: var(--lf-orange); color: var(--lf-orange); }
+.lesson-status-btn.published { background: #e6f7ee; border-color: #25a244; color: #25a244; }
+.lesson-status-btn.published:hover:not(:disabled) { background: #fff5f5; border-color: #e53e3e; color: #e53e3e; }
+.lesson-status-btn:disabled  { opacity: .55; cursor: not-allowed; }
 .lesson-list { border: 1.5px solid var(--lf-gray-200); border-radius: 6px; overflow: hidden; }
 .lesson-item { padding: 14px 18px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--lf-gray-200); }
 .lesson-item:last-child { border-bottom: none; }
@@ -735,48 +827,6 @@ onMounted(async () => {
 .notice-card.pinned { border-color: var(--lf-orange); }
 .notice-card-header { padding: 14px 18px; display: flex; align-items: center; gap: 10px; }
 .notice-card-body   { padding: 0 18px 14px; font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
-/* ── Q&A Section Layout ── */
-.qa-section  { margin-top: 20px; }
-.qa-count    {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 24px; height: 24px; background: var(--lf-orange); color: #fff;
-  border-radius: 50%; font-size: 12px; font-weight: 700;
-  margin-left: 8px; font-family: var(--lf-font-body);
-}
-
-.qa-list     { display: flex; flex-direction: column; gap: 16px; }
-
-.qa-question { border: 1.5px solid var(--lf-gray-200); border-radius: 8px; overflow: hidden; background: var(--lf-white); }
-.qa-question.resolved { border-color: #25a244; }
-.qa-question-header { display: flex; align-items: center; gap: 12px; padding: 14px 18px; background: var(--lf-gray-100); border-bottom: 1px solid var(--lf-gray-200); }
-.qa-question-body   { padding: 16px 18px; font-size: 14px; line-height: 1.7; white-space: pre-wrap; color: var(--lf-black); }
-
-/* ── Answers Section ── */
-.qa-answers  { border-top: 1px solid var(--lf-gray-200); background: #fafafa; }
-.qa-answer   { padding: 14px 18px; border-bottom: 1px solid var(--lf-gray-200); }
-.qa-answer:last-child { border-bottom: none; }
-.qa-answer.teacher-answer { background: #fffdf8; border-left: 4px solid var(--lf-orange); }
-
-.qa-answer-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.qa-answer-body   { font-size: 14px; line-height: 1.6; white-space: pre-wrap; color: var(--lf-gray-600); padding-left: 42px; }
-
-/* ── UI Elements ── */
-.qa-avatar {
-  width: 32px; height: 32px; border-radius: 50%; background: var(--lf-orange);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0;
-}
-.qa-avatar.sm { width: 26px; height: 26px; font-size: 11px; }
-
-/* ── Compose / Reply Area ── */
-.qa-reply-compose { padding: 16px 18px; background: var(--lf-gray-100); border-top: 1px solid var(--lf-gray-200); }
-.qa-textarea {
-  width: 100%; padding: 12px; border: 2px solid var(--lf-gray-200);
-  border-radius: 6px; font-family: var(--lf-font-body); font-size: 14px;
-  resize: vertical; outline: none; background: var(--lf-white); transition: border-color .15s;
-}
-.qa-textarea:focus { border-color: var(--lf-orange); }
-.qa-textarea.sm    { font-size: 13px; min-height: 80px; }
 .code-box   { background: var(--lf-black); border-radius: 8px; padding: 28px; text-align: center; border: 2px solid var(--lf-orange); }
 .code-label { font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #aaa; margin-bottom: 10px; }
 .code-val   { font-family: var(--lf-font-display); font-size: 56px; color: var(--lf-orange); letter-spacing: 10px; }
