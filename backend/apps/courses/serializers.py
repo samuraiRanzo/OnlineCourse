@@ -1,11 +1,33 @@
 from rest_framework import serializers
 from django.conf import settings
 from django.utils import timezone
-from .models import Course, Lesson, Enrollment, LessonCompletion, LessonQuestion, LessonAnswer
+from .models import Course, Lesson, Enrollment, LessonCompletion, LessonQuestion, LessonAnswer, LessonAttachment
+
+
+class LessonAttachmentSerializer(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = LessonAttachment
+        fields = ['id', 'name', 'file_size', 'extension', 'file_url', 'uploaded_at']
+        read_only_fields = ['id', 'name', 'file_size', 'extension', 'file_url', 'uploaded_at']
+
+    def get_file_url(self, obj):
+        """Return absolute URL so the browser can download directly."""
+        if not obj.file:
+            return None
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.file.url)
+        media_url = settings.MEDIA_URL
+        if media_url.startswith('http'):
+            return f'{media_url.rstrip("/")}/{obj.file.name}'
+        return f'{media_url}{obj.file.name}'
 
 
 class LessonSerializer(serializers.ModelSerializer):
-    hls_url = serializers.SerializerMethodField()
+    hls_url     = serializers.SerializerMethodField()
+    attachments = LessonAttachmentSerializer(many=True, read_only=True)
 
     class Meta:
         model  = Lesson
@@ -13,6 +35,7 @@ class LessonSerializer(serializers.ModelSerializer):
             'id', 'title', 'type', 'content', 'video_url', 'order',
             'status',
             'video_file', 'hls_path', 'hls_ready', 'hls_url',
+            'attachments',
         ]
         extra_kwargs = {
             'video_file': {'write_only': True},

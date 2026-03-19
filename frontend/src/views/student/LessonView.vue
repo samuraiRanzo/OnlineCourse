@@ -44,6 +44,29 @@
           <span v-else class="badge badge-green">✓ Course Complete</span>
         </div>
 
+        <!-- ── Attachments ── -->
+        <div v-if="lesson.attachments?.length" class="attachments-block">
+          <div class="attachments-title">📎 Lesson Resources</div>
+          <div class="attachments-grid">
+            <a
+              v-for="a in lesson.attachments"
+              :key="a.id"
+              :href="a.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="attachment-card"
+              @click.stop
+            >
+              <span class="attachment-card-icon">{{ fileIcon(a.extension) }}</span>
+              <div class="attachment-card-info">
+                <div class="attachment-card-name">{{ a.name }}</div>
+                <div class="attachment-card-meta">{{ a.extension?.toUpperCase() }} · {{ formatBytes(a.file_size) }}</div>
+              </div>
+              <span class="attachment-card-dl">⬇</span>
+            </a>
+          </div>
+        </div>
+
         <!-- ── Q&A ── -->
         <div class="qa-section">
           <div class="qa-header">
@@ -280,6 +303,23 @@ async function markComplete() {
   await courses.fetchEnrollments()
 }
 
+// ── Attachment helpers ────────────────────────────────────────────────────
+const ATTACHMENT_ICONS = {
+  pdf: '📄', doc: '📝', docx: '📝', ppt: '📊', pptx: '📊',
+  xls: '📈', xlsx: '📈', zip: '🗜️', rar: '🗜️', txt: '📃',
+  csv: '📋', mp3: '🎵', png: '🖼️', jpg: '🖼️', jpeg: '🖼️',
+}
+function fileIcon(ext) {
+  return ATTACHMENT_ICONS[ext?.toLowerCase()] ?? '📎'
+}
+function formatBytes(bytes) {
+  if (!bytes) return ''
+  if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' GB'
+  if (bytes >= 1048576)    return (bytes / 1048576).toFixed(1) + ' MB'
+  if (bytes >= 1024)       return (bytes / 1024).toFixed(0) + ' KB'
+  return bytes + ' B'
+}
+
 // ── Q&A ──────────────────────────────────────────────────────────────────
 const newQuestion     = ref('')
 const postingQuestion = ref(false)
@@ -432,4 +472,44 @@ onMounted(async () => {
 .btn-danger    { background: #e53e3e; color: #fff; }
 .btn-danger:hover { background: #c53030; }
 .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+/* ── Attachments block ── */
+.attachments-block {
+  margin-top: 24px; padding-top: 20px;
+  border-top: 1.5px solid var(--lf-gray-200);
+}
+.attachments-title {
+  font-size: 15px; font-weight: 700; margin-bottom: 12px;
+  color: var(--lf-black);
+}
+.attachments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.attachment-card {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px;
+  background: var(--lf-gray-100);
+  border: 1.5px solid var(--lf-gray-200);
+  border-radius: 8px;
+  text-decoration: none; color: inherit;
+  transition: border-color .15s, background .15s;
+}
+.attachment-card:hover {
+  border-color: var(--lf-orange);
+  background: var(--lf-orange-light);
+}
+.attachment-card-icon { font-size: 22px; flex-shrink: 0; }
+.attachment-card-info { flex: 1; overflow: hidden; }
+.attachment-card-name {
+  font-size: 13px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.attachment-card-meta { font-size: 11px; color: var(--lf-gray-400); margin-top: 2px; }
+.attachment-card-dl   {
+  font-size: 16px; color: var(--lf-orange);
+  flex-shrink: 0; opacity: 0; transition: opacity .15s;
+}
+.attachment-card:hover .attachment-card-dl { opacity: 1; }
 </style>

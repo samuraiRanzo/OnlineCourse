@@ -5,11 +5,12 @@ from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 
 from apps.users.permissions import IsAdmin
-from .models import Course, Lesson, Enrollment, LessonCompletion, LessonQuestion, LessonAnswer
+from .models import Course, Lesson, Enrollment, LessonCompletion, LessonQuestion, LessonAnswer, LessonAttachment
 from .serializers import (
     CourseSerializer, CourseListSerializer, LessonSerializer,
     EnrollmentSerializer, LessonCompletionSerializer,
     LessonQuestionSerializer, LessonAnswerSerializer,
+    LessonAttachmentSerializer,
 )
 
 
@@ -249,3 +250,48 @@ class LessonAnswerViewSet(viewsets.ModelViewSet):
         if request.user.is_student and answer.author != request.user:
             return Response({'detail': 'You can only delete your own answers.'}, status=403)
         return super().destroy(request, *args, **kwargs)
+
+class LessonAttachmentViewSet(viewsets.ModelViewSet):
+    """
+    File attachments on a lesson.
+    Nested under: /api/courses/<course_pk>/lessons/<lesson_pk>/attachments/
+
+    - Teacher: upload (POST multipart), delete
+    - Students: list + download URL (read-only)
+    - Files are stored under MEDIA_ROOT/lessons/<lesson_id>/attachments/
+    """
+    serializer_class  = LessonAttachmentSerializer
+    http_method_names = ['get', 'post', 'delete', 'head', 'options']
+    parser_classes    = [
+        __import__('rest_framework.parsers', fromlist=['MultiPartParser']).MultiPartParser,
+        __import__('rest_framework.parsers', fromlist=['JSONParser']).JSONParser,
+    ]
+
+    def get_permissions(self):
+        if self.action in ['create', 'destroy']:
+            return [IsAdmin()]
+        return [IsAuthenticated()]
+
+    def get_queryset(self):
+        return LessonAttachment.objects.filter(
+            lesson_id=self.kwargs['lesson_pk']
+        )
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+    def perform_create(self, serializer):
+        lesson = Lesson.objects.get(pk=self.kwargs['lesson_pk'])
+        uploaded = self.request.FILES.get('file')
+
+        # Use the provided name, or fall back to the original filename
+        name      = self.request.data.get('name', '').strip() or uploaded.name
+        file_size = uploaded.size if uploaded else 0
+
+        serializer.save(
+            lesson=lesson,
+            name=name,
+            file_size=file_size,
+        )

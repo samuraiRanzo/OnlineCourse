@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     CourseViewSet, LessonViewSet, EnrollmentViewSet, LessonCompletionViewSet,
-    LessonQuestionViewSet, LessonAnswerViewSet,
+    LessonQuestionViewSet, LessonAnswerViewSet, LessonAttachmentViewSet,
 )
 
 router = DefaultRouter()
@@ -25,6 +25,14 @@ urlpatterns = [
     # ── Lesson publish / unpublish ────────────────────────────────────────────
     path('<uuid:course_pk>/lessons/<uuid:pk>/publish/',   LessonViewSet.as_view({'post': 'publish'}),   name='lesson-publish'),
     path('<uuid:course_pk>/lessons/<uuid:pk>/unpublish/', LessonViewSet.as_view({'post': 'unpublish'}), name='lesson-unpublish'),
+
+    # ── Attachments ───────────────────────────────────────────────────────────
+    path('<uuid:course_pk>/lessons/<uuid:lesson_pk>/attachments/', LessonAttachmentViewSet.as_view({
+        'get': 'list', 'post': 'create',
+    }), name='lesson-attachment-list'),
+    path('<uuid:course_pk>/lessons/<uuid:lesson_pk>/attachments/<uuid:pk>/', LessonAttachmentViewSet.as_view({
+        'get': 'retrieve', 'delete': 'destroy',
+    }), name='lesson-attachment-detail'),
 
     # ── Q&A ───────────────────────────────────────────────────────────────────
     path('<uuid:course_pk>/lessons/<uuid:lesson_pk>/questions/', LessonQuestionViewSet.as_view({

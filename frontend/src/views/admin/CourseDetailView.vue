@@ -202,64 +202,6 @@
           <div class="notice-card-body text-muted">{{ n.body }}</div>
         </div>
       </div>
-          <div v-if="activeTab === 'qa'">
-      <div class="section-header">
-        <div class="section-title">Course-Wide Q&A</div>
-      </div>
-
-      <div v-if="qaStore.loading" class="text-muted text-sm">Loading all course questions...</div>
-
-      <EmptyState v-else-if="!qaStore.questions.length" icon="💬" title="No questions yet" message="Student questions from all lessons will appear here." />
-
-      <div v-else class="qa-list">
-        <div v-for="q in qaStore.questions" :key="q.id" class="qa-question" :class="{ resolved: q.is_resolved }">
-
-          <div class="qa-question-header">
-            <div class="qa-avatar">{{ q.author_name?.charAt(0).toUpperCase() }}</div>
-            <div style="flex:1">
-              <div style="font-size:11px; font-weight:700; color:var(--lf-orange); text-transform:uppercase">
-                Lesson: {{ q.lesson_title || 'Video/Text Lesson' }}
-              </div>
-              <div style="font-size:14px; font-weight:600">{{ q.author_name }}</div>
-              <div class="text-muted text-sm">{{ formatDate(q.created_at) }}</div>
-            </div>
-
-            <div style="display:flex; gap:6px">
-              <button class="btn btn-ghost btn-sm" @click="handleToggleResolved(q)">
-                {{ q.is_resolved ? 'Unresolve' : 'Mark Resolved' }}
-              </button>
-            </div>
-          </div>
-
-          <div class="qa-question-body">{{ q.body }}</div>
-
-          <div class="qa-answers">
-            <div v-for="a in q.answers" :key="a.id" class="qa-answer" :class="{ 'teacher-answer': a.is_teacher }">
-              <div class="qa-answer-header">
-                <div class="qa-avatar sm" :style="a.is_teacher ? 'background:var(--lf-black)' : ''">
-                  {{ a.author_name?.charAt(0).toUpperCase() }}
-                </div>
-                <div style="flex:1">
-                  <div style="font-size:13px; font-weight:600">
-                    {{ a.author_name }}
-                    <span v-if="a.is_teacher" class="badge badge-black" style="font-size:9px; margin-left:6px">Teacher</span>
-                  </div>
-                  <div class="text-muted text-sm">{{ formatDate(a.created_at) }}</div>
-                </div>
-              </div>
-              <div class="qa-answer-body">{{ a.body }}</div>
-            </div>
-
-            <div class="qa-reply-compose">
-              <textarea v-model="replyText[q.id]" class="qa-textarea sm" placeholder="Type your official answer here..." rows="2" />
-              <button class="btn btn-secondary btn-sm" style="margin-top:6px" :disabled="!replyText[q.id]?.trim()" @click="handlePostAnswer(q.id)">
-                ✓ Post Official Answer
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
     </div>
 
     <!-- Add / Edit Lesson Modal -->
@@ -371,6 +313,52 @@
         <textarea v-model="lessonForm.content" class="form-control" rows="4" placeholder="Lesson notes or description…" />
       </FormGroup>
 
+      <!-- ── Attachments (only shown when editing an existing lesson) ── -->
+      <div v-if="editLesson" class="attachments-section">
+        <div class="attachments-header">
+          <span style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--lf-gray-600)">
+            📎 Attachments
+          </span>
+          <label class="attach-upload-btn">
+            <input
+              type="file"
+              multiple
+              style="display:none"
+              @change="handleAttachFiles"
+            />
+            + Add Files
+          </label>
+        </div>
+
+        <!-- Uploading progress -->
+        <div v-if="attachUploading" class="attach-uploading">
+          <div class="attach-spinner" /> Uploading…
+        </div>
+
+        <!-- File list -->
+        <div v-if="editLesson.attachments?.length" class="attach-list">
+          <div
+            v-for="a in editLesson.attachments"
+            :key="a.id"
+            class="attach-item"
+          >
+            <span class="attach-icon">{{ fileIcon(a.extension) }}</span>
+            <div class="attach-info">
+              <div class="attach-name">{{ a.name }}</div>
+              <div class="attach-size text-muted text-sm">{{ formatBytes(a.file_size) }}</div>
+            </div>
+            <button
+              class="btn btn-danger btn-sm"
+              @click="handleDeleteAttachment(a.id)"
+            >✕</button>
+          </div>
+        </div>
+
+        <p v-else-if="!attachUploading" class="text-muted text-sm" style="margin-top:8px;padding:10px;background:var(--lf-gray-100);border-radius:6px;text-align:center">
+          No attachments yet — click <strong>+ Add Files</strong> to upload PDFs, slides, docs…
+        </p>
+      </div>
+
       <template #footer>
         <button class="btn btn-ghost" @click="closeAddLesson">Cancel</button>
         <button
@@ -435,7 +423,6 @@ import { useCoursesStore }        from '@/stores/courses'
 import { useAttendanceStore }     from '@/stores/attendance'
 import { useAnnouncementsStore }  from '@/stores/announcements'
 import { useExamsStore }          from '@/stores/exams'
-import { useQaStore }          from '@/stores/qa'
 
 const route     = useRoute()
 const router    = useRouter()
@@ -444,7 +431,6 @@ const courses   = useCoursesStore()
 const attStore  = useAttendanceStore()
 const annStore  = useAnnouncementsStore()
 const exStore   = useExamsStore()
-const qaStore   = useQaStore()
 
 const course    = computed(() => courses.current)
 const sessions  = computed(() => attStore.sessions)
@@ -488,7 +474,6 @@ async function handleToggleLessonStatus(lesson) {
   } catch {
     toast.add({ severity: 'error', summary: 'Failed to update lesson status', life: 3000 })
   } finally {
-    await courses.fetchCourse(route.params.id)  // Refresh course to get updated lesson statuses
     togglingLesson.value = null
   }
 }
@@ -499,7 +484,6 @@ const tabs = [
   { key: 'exam',          label: 'Exam Builder' },
   { key: 'sessions',      label: 'Sessions & Attendance' },
   { key: 'announcements', label: 'Announcements' },
-  { key: 'qa',            label: 'Q&A' },
 ]
 
 // ── Lesson ───────────────────────────────────────────────────
@@ -509,7 +493,7 @@ const saving         = ref(false)
 const isDragging     = ref(false)
 const fileInput      = ref(null)
 const uploadProgress = computed(() => courses.uploadProgress)
-const replyText       = reactive({})  // For storing reply text for each question in the Q&A tab
+
 // ── Drag-to-reorder state ─────────────────────────────────────
 // localLessons is a local copy we mutate during drag so the
 // list updates visually before the API call is made.
@@ -567,9 +551,7 @@ function onDragEnd() {
   draggingId.value = null
   dragOverId.value = null
 }
-async function handleToggleResolved(q) {
-  await qaStore.resolveQuestion(route.params.id, q.lesson, q.id, !q.is_resolved)
-}
+
 async function saveOrder() {
   reordering.value = true
   try {
@@ -687,6 +669,54 @@ async function handleDeleteLesson(lessonId) {
   toast.add({ severity: 'info', summary: 'Lesson deleted', life: 3000 })
 }
 
+// ── Attachments ──────────────────────────────────────────────
+const attachUploading = ref(false)
+
+const ATTACHMENT_ICONS = {
+  pdf:  '📄', doc: '📝', docx: '📝',
+  ppt:  '📊', pptx: '📊', xls: '📈', xlsx: '📈',
+  zip:  '🗜️', rar: '🗜️', mp3: '🎵', mp4: '🎬',
+  png:  '🖼️', jpg: '🖼️', jpeg: '🖼️', gif: '🖼️',
+  txt:  '📃', csv: '📋',
+}
+
+function fileIcon(ext) {
+  return ATTACHMENT_ICONS[ext?.toLowerCase()] ?? '📎'
+}
+
+function formatBytes(bytes) {
+  if (!bytes) return '—'
+  if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + ' GB'
+  if (bytes >= 1048576)    return (bytes / 1048576).toFixed(1) + ' MB'
+  if (bytes >= 1024)       return (bytes / 1024).toFixed(0) + ' KB'
+  return bytes + ' B'
+}
+
+async function handleAttachFiles(e) {
+  const files = Array.from(e.target.files ?? [])
+  if (!files.length || !editLesson.value) return
+  attachUploading.value = true
+  try {
+    for (const file of files) {
+      await courses.uploadAttachment(route.params.id, editLesson.value.id, file)
+    }
+    // Sync editLesson ref from updated store
+    editLesson.value = courses.current?.lessons?.find(l => l.id === editLesson.value.id) ?? editLesson.value
+    toast.add({ severity: 'success', summary: `${files.length} file(s) uploaded`, life: 3000 })
+  } catch {
+    toast.add({ severity: 'error', summary: 'Upload failed', life: 3000 })
+  } finally {
+    attachUploading.value = false
+    e.target.value = ''   // reset input so same file can be re-selected
+  }
+}
+
+async function handleDeleteAttachment(attachmentId) {
+  if (!editLesson.value) return
+  await courses.deleteAttachment(route.params.id, editLesson.value.id, attachmentId)
+  editLesson.value = courses.current?.lessons?.find(l => l.id === editLesson.value.id) ?? editLesson.value
+}
+
 // ── Exam ─────────────────────────────────────────────────────
 const examDraft = reactive({ title: '', max_retakes: 0, questions: [] })
 
@@ -771,7 +801,6 @@ onMounted(async () => {
   await Promise.all([
     attStore.fetchSessions(id),
     annStore.fetchAnnouncements(id),
-    qaStore.fetchCourseQuestions(id),
     exStore.fetchExamByCourse(id).then(exam => {
       if (exam) Object.assign(examDraft, {
         title:       exam.title,
@@ -863,11 +892,45 @@ onMounted(async () => {
   transition: color .15s;
 }
 .lesson-item:hover .drag-handle { color: var(--lf-gray-600); }
-.lesson-item.dragging {
-  opacity: .4;
+.lesson-item.dragging { opacity: .4; }
+.lesson-item.drag-over { border-top: 2px solid var(--lf-orange); background: var(--lf-orange-light); }
+
+/* ── Attachments panel ── */
+.attachments-section {
+  margin-top: 20px; padding-top: 16px;
+  border-top: 1.5px solid var(--lf-gray-200);
 }
-.lesson-item.drag-over {
-  border-top: 2px solid var(--lf-orange);
-  background: var(--lf-orange-light);
+.attachments-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
 }
+.attach-upload-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 5px 14px; border-radius: var(--lf-radius);
+  background: var(--lf-black); color: #fff;
+  font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: background .15s; white-space: nowrap;
+}
+.attach-upload-btn:hover { background: #333; }
+.attach-uploading {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--lf-gray-600); padding: 8px 0;
+}
+.attach-spinner {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid var(--lf-gray-200);
+  border-top-color: var(--lf-orange);
+  animation: spin .6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.attach-list { display: flex; flex-direction: column; gap: 6px; }
+.attach-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; background: var(--lf-gray-100);
+  border: 1.5px solid var(--lf-gray-200); border-radius: 6px;
+}
+.attach-icon { font-size: 20px; flex-shrink: 0; }
+.attach-info { flex: 1; overflow: hidden; }
+.attach-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.attach-size { font-size: 11px; }
 </style>

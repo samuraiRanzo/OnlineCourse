@@ -163,6 +163,37 @@ export const useCoursesStore = defineStore('courses', () => {
     }
   }
 
+  // ── Attachments ────────────────────────────────────────────────────
+  async function uploadAttachment(courseId, lessonId, file, name = '') {
+    const fd = new FormData()
+    fd.append('file', file, file.name)
+    if (name) fd.append('name', name)
+    const { data } = await api.post(
+      `/courses/${courseId}/lessons/${lessonId}/attachments/`,
+      fd,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    )
+    // Push into local lesson attachments list
+    if (current.value?.id === courseId) {
+      const lesson = current.value.lessons.find(l => l.id === lessonId)
+      if (lesson) {
+        if (!lesson.attachments) lesson.attachments = []
+        lesson.attachments.push(data)
+      }
+    }
+    return data
+  }
+
+  async function deleteAttachment(courseId, lessonId, attachmentId) {
+    await api.delete(`/courses/${courseId}/lessons/${lessonId}/attachments/${attachmentId}/`)
+    if (current.value?.id === courseId) {
+      const lesson = current.value.lessons.find(l => l.id === lessonId)
+      if (lesson?.attachments) {
+        lesson.attachments = lesson.attachments.filter(a => a.id !== attachmentId)
+      }
+    }
+  }
+
   // ── Enrollments ────────────────────────────────────────────────────
   async function fetchEnrollments(params = {}) {
     const { data } = await api.get('/courses/enrollments/', { params })
@@ -198,6 +229,7 @@ export const useCoursesStore = defineStore('courses', () => {
     publishCourse, unpublishCourse,
     createLesson, updateLesson, deleteLesson, reorderLessons,
     publishLesson, unpublishLesson,
+    uploadAttachment, deleteAttachment,
     fetchEnrollments, createEnrollment, deleteEnrollment,
     markLessonComplete,
   }
