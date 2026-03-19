@@ -33,6 +33,9 @@ urlpatterns = [
     path('<uuid:course_pk>/lessons/<uuid:lesson_pk>/attachments/<uuid:pk>/', LessonAttachmentViewSet.as_view({
         'get': 'retrieve', 'delete': 'destroy',
     }), name='lesson-attachment-detail'),
+    path('<uuid:course_pk>/lessons/<uuid:lesson_pk>/attachments/<uuid:pk>/stream/', LessonAttachmentViewSet.as_view({
+        'get': 'stream',
+    }), name='lesson-attachment-stream'),
 
     # ── Q&A ───────────────────────────────────────────────────────────────────
     path('<uuid:course_pk>/lessons/<uuid:lesson_pk>/questions/', LessonQuestionViewSet.as_view({

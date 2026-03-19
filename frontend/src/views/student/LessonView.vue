@@ -51,11 +51,10 @@
             <a
               v-for="a in lesson.attachments"
               :key="a.id"
-              :href="a.url"
+              :href="a.stream_url"
               target="_blank"
               rel="noopener noreferrer"
               class="attachment-card"
-              @click.stop
             >
               <span class="attachment-card-icon">{{ fileIcon(a.extension) }}</span>
               <div class="attachment-card-info">

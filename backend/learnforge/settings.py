@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from decouple import config
 from datetime import timedelta
@@ -144,44 +145,9 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # ─── MEDIA / FILE STORAGE ───────────────────────────────────────────────────
-# Supabase Storage is S3-compatible.
-# In production: files go to Supabase Storage bucket.
-# In local dev: files go to local media/ folder as before.
-#
-# How to get these values from Supabase:
-#   Dashboard → Storage → (create bucket "learnforge-media" set to Public)
-#   Dashboard → Project Settings → API → Project URL  →  SUPABASE_URL
-#   Dashboard → Project Settings → API → service_role key  →  SUPABASE_S3_SECRET
-#   Dashboard → Storage → S3 Connection → Access Key ID  →  SUPABASE_S3_KEY
-
-USE_SUPABASE_STORAGE = config('USE_SUPABASE_STORAGE', default=False, cast=bool)
-
-if USE_SUPABASE_STORAGE:
-    # S3-compatible Supabase Storage
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-
-    AWS_ACCESS_KEY_ID       = config('SUPABASE_S3_KEY')
-    AWS_SECRET_ACCESS_KEY   = config('SUPABASE_S3_SECRET')
-    AWS_STORAGE_BUCKET_NAME = config('SUPABASE_BUCKET_NAME', default='learnforge-media')
-    AWS_S3_REGION_NAME      = config('SUPABASE_REGION',      default='ap-southeast-1')
-
-    # Supabase S3 endpoint — find yours in Storage → S3 Connection settings
-    # Format: https://<project-ref>.supabase.co/storage/v1/s3
-    AWS_S3_ENDPOINT_URL     = config('SUPABASE_S3_ENDPOINT')
-
-    # Public files — videos and HLS segments are served directly via Supabase CDN
-    AWS_DEFAULT_ACL         = 'public-read'
-    AWS_QUERYSTRING_AUTH    = False
-    AWS_S3_FILE_OVERWRITE   = False
-
-    # Build the public media URL from Supabase
-    # Format: https://<project-ref>.supabase.co/storage/v1/object/public/<bucket>/
-    MEDIA_URL  = config('SUPABASE_MEDIA_URL')
-    MEDIA_ROOT = ''   # not used when storing in Supabase
-else:
-    # Local development — use local filesystem as before
-    MEDIA_URL  = '/media/'
-    MEDIA_ROOT = BASE_DIR / 'media'
+# Local development — use local filesystem as before
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # ─── FILE UPLOAD ────────────────────────────────────────────────────────────
 DATA_UPLOAD_MAX_MEMORY_SIZE = None

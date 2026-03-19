@@ -5,24 +5,48 @@ from .models import Course, Lesson, Enrollment, LessonCompletion, LessonQuestion
 
 
 class LessonAttachmentSerializer(serializers.ModelSerializer):
-    file_url = serializers.SerializerMethodField()
+    stream_url = serializers.SerializerMethodField()
+    extension = serializers.CharField(read_only=True)
 
     class Meta:
-        model  = LessonAttachment
-        fields = ['id', 'name', 'file_size', 'extension', 'file_url', 'uploaded_at']
-        read_only_fields = ['id', 'name', 'file_size', 'extension', 'file_url', 'uploaded_at']
+        model = LessonAttachment
+        # 👇 FIX 1: Add 'file' right here!
+        fields = ['id', 'name', 'file', 'file_size', 'extension', 'stream_url', 'uploaded_at']
+        read_only_fields = ['id', 'file_size', 'extension', 'stream_url', 'uploaded_at']
+        # 👇 FIX 2: Make it write_only so it only processes on upload
+        extra_kwargs = {
+            'file': {'write_only': True}
+        }
 
-    def get_file_url(self, obj):
-        """Return absolute URL so the browser can download directly."""
-        if not obj.file:
+
+    def get_stream_url(self, obj):
+        """
+        Always points to the Django /api/ stream endpoint, never /media/.
+        Works in every environment (dev Vite proxy, Docker Nginx, production)
+        because the browser resolves it relative to its current origin.
+        """
+        # 1. SAFETY CHECK: If there is no file, return None immediately
+        if not obj.file or not obj.file.name:
             return None
+
         request = self.context.get('request')
+        from django.urls import reverse
+        try:
+            view = self.context.get('view')
+            course_pk = view.kwargs.get('course_pk') if view else None
+            lesson_pk = view.kwargs.get('lesson_pk') if view else None
+            if course_pk and lesson_pk:
+                path = f'/api/courses/{course_pk}/lessons/{lesson_pk}/attachments/{obj.id}/stream/'
+                if request:
+                    return request.build_absolute_uri(path)
+                return path
+        except Exception:
+            pass
+
+        # Fallback — direct media URL
         if request:
             return request.build_absolute_uri(obj.file.url)
-        media_url = settings.MEDIA_URL
-        if media_url.startswith('http'):
-            return f'{media_url.rstrip("/")}/{obj.file.name}'
-        return f'{media_url}{obj.file.name}'
+        return obj.file.url
 
 
 class LessonSerializer(serializers.ModelSerializer):

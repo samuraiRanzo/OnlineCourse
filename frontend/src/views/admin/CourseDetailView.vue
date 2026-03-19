@@ -347,6 +347,14 @@
               <div class="attach-name">{{ a.name }}</div>
               <div class="attach-size text-muted text-sm">{{ formatBytes(a.file_size) }}</div>
             </div>
+            <a
+              :href="a.stream_url"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn btn-ghost btn-sm"
+              style="text-decoration:none"
+              title="Open file"
+            >↗</a>
             <button
               class="btn btn-danger btn-sm"
               @click="handleDeleteAttachment(a.id)"
@@ -698,7 +706,8 @@ async function handleAttachFiles(e) {
   attachUploading.value = true
   try {
     for (const file of files) {
-      await courses.uploadAttachment(route.params.id, editLesson.value.id, file)
+      console.log(file)
+      await courses.uploadAttachment(route.params.id, editLesson.value.id, file,file.name)
     }
     // Sync editLesson ref from updated store
     editLesson.value = courses.current?.lessons?.find(l => l.id === editLesson.value.id) ?? editLesson.value

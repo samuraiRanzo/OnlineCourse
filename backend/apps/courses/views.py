@@ -76,14 +76,6 @@ class CourseViewSet(viewsets.ModelViewSet):
         Lesson.objects.bulk_update(lessons.values(), ['order'])
         return Response(LessonSerializer(course.lessons.order_by('order'), many=True).data)
 
-    @action(detail=True, methods=['get'], url_path='all-questions')
-    def all_questions(self, request, pk=None):
-        """Returns all questions for all lessons in this course."""
-        from .models import LessonQuestion
-        questions = LessonQuestion.objects.filter(lesson__course_id=pk).select_related('author', 'lesson')
-        serializer = LessonQuestionSerializer(questions, many=True)
-        return Response(serializer.data)
-
 
 class LessonViewSet(viewsets.ModelViewSet):
     serializer_class = LessonSerializer
@@ -256,9 +248,11 @@ class LessonAttachmentViewSet(viewsets.ModelViewSet):
     File attachments on a lesson.
     Nested under: /api/courses/<course_pk>/lessons/<lesson_pk>/attachments/
 
-    - Teacher: upload (POST multipart), delete
-    - Students: list + download URL (read-only)
-    - Files are stored under MEDIA_ROOT/lessons/<lesson_id>/attachments/
+    - Teacher : upload (POST multipart), delete
+    - Students: list, retrieve, stream download
+    - GET …/attachments/<id>/stream/ → Django serves the file directly through
+      the /api/ path, so both Vite dev proxy and Nginx handle it correctly.
+      No JWT header needed — the UUID is the access token.
     """
     serializer_class  = LessonAttachmentSerializer
     http_method_names = ['get', 'post', 'delete', 'head', 'options']
@@ -270,6 +264,11 @@ class LessonAttachmentViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['create', 'destroy']:
             return [IsAdmin()]
+        # stream is intentionally open — UUID provides obscurity-based access control
+        # (same security model as Nginx serving /media/ directly)
+        if self.action == 'stream':
+            from rest_framework.permissions import AllowAny
+            return [AllowAny()]
         return [IsAuthenticated()]
 
     def get_queryset(self):
@@ -284,14 +283,51 @@ class LessonAttachmentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         lesson = Lesson.objects.get(pk=self.kwargs['lesson_pk'])
+
+        # Grab the file from the request
         uploaded = self.request.FILES.get('file')
 
-        # Use the provided name, or fall back to the original filename
-        name      = self.request.data.get('name', '').strip() or uploaded.name
-        file_size = uploaded.size if uploaded else 0
+        # Safety check: Prevent crashing if no file is sent
+        if not uploaded:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({'file': 'No file was uploaded.'})
 
+        # Figure out the name and size
+        name = self.request.data.get('name', '').strip() or uploaded.name
+        file_size = uploaded.size
+
+        # 👇 FIX 3: You MUST pass `file=uploaded` here so it saves to the DB!
         serializer.save(
             lesson=lesson,
             name=name,
             file_size=file_size,
+            file=uploaded  # <--- THIS IS THE MAGIC KEY
         )
+
+    @action(detail=True, methods=['get'], url_path='stream')
+    def stream(self, request, **kwargs):
+        from django.http import FileResponse, Http404
+        import mimetypes
+
+        attachment = self.get_object()
+
+        # FIX: Check .name instead of the file object itself
+        if not attachment.file.name:
+            raise Http404
+
+        try:
+            f = attachment.file.open('rb')
+        except (FileNotFoundError, OSError, ValueError):  # Added ValueError just in case
+            raise Http404
+
+        mime, _ = mimetypes.guess_type(attachment.name)
+        response = FileResponse(
+            f,
+            content_type=mime or 'application/octet-stream',
+        )
+        # 'inline' → browser tries to display in-tab (PDF, images)
+        # 'attachment' → forces download dialog
+        # We use inline so PDFs open in the browser like students expect
+        safe_name = attachment.name.replace('"', '\\"')
+        response['Content-Disposition'] = f'inline; filename="{safe_name}"'
+        return response

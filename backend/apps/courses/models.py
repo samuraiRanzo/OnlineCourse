@@ -164,54 +164,6 @@ def attachment_upload_path(instance, filename):
     """Organise attachments under media/attachments/<lesson_id>/<filename>"""
     return f'attachments/{instance.lesson_id}/{filename}'
 
-
-class LessonAttachment(models.Model):
-    """A downloadable file attached to a lesson — PDF, slides, code, etc."""
-    id          = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    lesson      = models.ForeignKey(
-        Lesson, on_delete=models.CASCADE, related_name='attachments'
-    )
-    file        = models.FileField(upload_to=attachment_upload_path)
-    name        = models.CharField(
-        max_length=255, blank=True,
-        help_text='Display name. Defaults to the original filename if left empty.'
-    )
-    file_size   = models.PositiveBigIntegerField(
-        default=0, help_text='File size in bytes — set automatically on save'
-    )
-    extension   = models.CharField(
-        max_length=20, blank=True,
-        help_text='Lowercase file extension without dot — set automatically on save'
-    )
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = 'lesson_attachments'
-        ordering = ['uploaded_at']
-
-    def save(self, *args, **kwargs):
-        # Auto-populate name, size, and extension from the file
-        if self.file and not self.pk:
-            original = self.file.name
-            if not self.name:
-                self.name = original.split('/')[-1]
-            ext = original.rsplit('.', 1)[-1] if '.' in original else ''
-            self.extension = ext.lower()[:20]
-            try:
-                self.file_size = self.file.size
-            except Exception:
-                self.file_size = 0
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f'{self.name} → {self.lesson.title}'
-
-
-def attachment_upload_path(instance, filename):
-    """Store attachments under lessons/<lesson_id>/attachments/<filename>"""
-    return f'lessons/{instance.lesson_id}/attachments/{filename}'
-
-
 class LessonAttachment(models.Model):
     """
     A downloadable file attached to a lesson by a teacher.
