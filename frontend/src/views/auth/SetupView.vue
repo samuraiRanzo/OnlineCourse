@@ -1,6 +1,6 @@
 <template>
-  <div class="setup-page">
-    <div class="setup-left">
+  <div class="lf-auth-page">
+    <div class="lf-auth-left">
       <div class="setup-logo display">LEARN<span>FORGE</span></div>
       <p class="setup-tagline">Welcome. Let's get you set up.</p>
       <div class="setup-steps">
@@ -19,8 +19,8 @@
       </div>
     </div>
 
-    <div class="setup-right">
-      <div class="setup-form-wrap">
+    <div class="lf-auth-right">
+      <div class="lf-auth-form-wrap">
         <div class="setup-badge">First-time setup</div>
         <h2 class="display" style="font-size:34px;letter-spacing:.5px;margin-top:10px">Create Teacher Account</h2>
         <p class="text-muted text-sm" style="margin-top:4px;margin-bottom:28px">
@@ -141,15 +141,6 @@ async function handleSetup() {
 </script>
 
 <style scoped>
-.setup-page  { min-height: 100vh; display: flex; }
-.setup-left  {
-  width: 42%; background: var(--lf-black); display: flex; flex-direction: column;
-  justify-content: center; padding: 60px; position: relative; overflow: hidden;
-}
-.setup-left::before {
-  content: ''; position: absolute; top: -80px; right: -80px;
-  width: 280px; height: 280px; background: var(--lf-orange); border-radius: 50%; opacity: .12;
-}
 .setup-logo    { font-size: 44px; color: #fff; letter-spacing: 2px; line-height: 1; }
 .setup-logo span { color: var(--lf-orange); }
 .setup-tagline { color: var(--lf-gray-400); font-size: 15px; margin-top: 12px; }
@@ -165,8 +156,6 @@ async function handleSetup() {
 .setup-step.active .step-dot { border-color: var(--lf-orange); color: var(--lf-orange); }
 .setup-step.done   .step-dot { border-color: #25a244; color: #25a244; }
 
-.setup-right     { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px; }
-.setup-form-wrap { width: 100%; max-width: 400px; }
 .setup-badge {
   display: inline-block; padding: 4px 12px; background: var(--lf-orange-light);
   color: var(--lf-orange); border-radius: 20px; font-size: 12px; font-weight: 700;

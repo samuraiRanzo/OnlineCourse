@@ -1,111 +1,1053 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   LearnForge — Global Design System
+   Single source of truth. No scoped styles needed in views/components.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── CSS Tokens ────────────────────────────────────────────────────────── */
 :root {
-  --lf-black:        #0a0a0a;
-  --lf-white:        #ffffff;
-  --lf-gray-100:     #f5f5f5;
-  --lf-gray-200:     #e8e8e8;
-  --lf-gray-400:     #a0a0a0;
-  --lf-gray-600:     #555555;
-  --lf-orange:       #FF6B00;
-  --lf-orange-dark:  #cc5500;
-  --lf-orange-light: #fff3ea;
-  --lf-font-display: 'Bebas Neue', sans-serif;
-  --lf-font-body:    'DM Sans', sans-serif;
-  --lf-radius:       4px;
-  --lf-shadow:       0 2px 12px rgba(0,0,0,0.08);
-  --lf-shadow-lg:    0 8px 32px rgba(0,0,0,0.12);
+    --lf-black: #0a0a0a;
+    --lf-white: #ffffff;
+    --lf-gray-50: #fafafa;
+    --lf-gray-100: #f5f5f5;
+    --lf-gray-200: #e8e8e8;
+    --lf-gray-400: #a0a0a0;
+    --lf-gray-600: #555555;
+    --lf-orange: #FF6B00;
+    --lf-orange-dark: #cc5500;
+    --lf-orange-light: #fff3ea;
+    --lf-green: #25a244;
+    --lf-green-light: #e6f7ee;
+    --lf-red: #e53e3e;
+    --lf-red-light: #fff5f5;
+    --lf-blue: #2563eb;
+    --lf-blue-light: #e8f0fe;
+
+    --lf-font-display: 'Bebas Neue', sans-serif;
+    --lf-font-body: 'DM Sans', sans-serif;
+    --lf-radius: 6px;
+    --lf-radius-lg: 10px;
+    --lf-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+    --lf-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.11);
+
+    /* Sidebar dimensions — used by AppShell & AppSidebar */
+    --sidebar-w: 240px;
+    --topbar-h: 64px;
 }
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* ── Reset ─────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
 
 html, body, #app {
-  height: 100%;
-  font-family: var(--lf-font-body);
-  font-size: 15px;
-  color: var(--lf-black);
-  background: var(--lf-white);
-  line-height: 1.6;
+    height: 100%;
+    font-family: var(--lf-font-body);
+    font-size: 15px;
+    color: var(--lf-black);
+    background: var(--lf-white);
+    line-height: 1.6;
 }
 
-/* ── typography helpers ── */
-.display      { font-family: var(--lf-font-display); letter-spacing: .5px; }
-.text-orange  { color: var(--lf-orange); }
-.text-muted   { color: var(--lf-gray-600); }
-.text-sm      { font-size: 13px; }
-.font-600     { font-weight: 600; }
+/* ═══════════════════════════════════════════════════════════════════════════
+   LAYOUT
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── layout ── */
-.page-content { padding: 32px; }
+/* App shell — sidebar + main area */
+.lf-shell {
+    display: flex;
+    min-height: 100vh;
+}
+
+.lf-main-content {
+    margin-left: var(--sidebar-w);
+    flex: 1;
+    min-height: 100vh;
+    background: var(--lf-gray-100);
+    transition: margin-left 0.25s ease;
+}
+
+/* Topbar */
+.lf-topbar {
+    height: var(--topbar-h);
+    background: var(--lf-white);
+    border-bottom: 1.5px solid var(--lf-gray-200);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    gap: 12px;
+}
+
+.lf-topbar-title {
+    font-family: var(--lf-font-display);
+    font-size: 26px;
+    letter-spacing: .5px;
+    white-space: nowrap;
+}
+
+.lf-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.lf-topbar-hamburger {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px;
+    color: var(--lf-black);
+    font-size: 20px;
+    border-radius: var(--lf-radius);
+    flex-shrink: 0;
+}
+
+.lf-topbar-hamburger:hover {
+    background: var(--lf-gray-100);
+}
+
+/* Page content area */
+.page-content {
+    padding: 24px;
+}
+
+/* ── Sidebar ────────────────────────────────────────────────────────────── */
+.lf-sidebar {
+    width: var(--sidebar-w);
+    background: var(--lf-black);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    overflow-y: auto;
+    z-index: 100;
+    transition: transform 0.25s ease;
+}
+
+.lf-sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 99;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TYPOGRAPHY HELPERS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.display {
+    font-family: var(--lf-font-display);
+    letter-spacing: .5px;
+}
+
+.text-orange {
+    color: var(--lf-orange);
+}
+
+.text-muted {
+    color: var(--lf-gray-600);
+}
+
+.text-sm {
+    font-size: 13px;
+}
+
+.text-xs {
+    font-size: 11px;
+}
+
+.font-600 {
+    font-weight: 600;
+}
+
+.truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SECTION HEADER
+   ═══════════════════════════════════════════════════════════════════════════ */
 .section-header {
-  display: flex; align-items: center;
-  justify-content: space-between; margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    gap: 12px;
+    flex-wrap: wrap;
 }
-.section-title { font-family: var(--lf-font-display); font-size: 24px; letter-spacing: .5px; }
 
-/* ── stats grid ── */
+.section-title {
+    font-family: var(--lf-font-display);
+    font-size: 22px;
+    letter-spacing: .5px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CARDS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.lf-card {
+    background: var(--lf-white);
+    border: 1.5px solid var(--lf-gray-200);
+    border-radius: var(--lf-radius-lg);
+    padding: 24px;
+    box-shadow: var(--lf-shadow);
+    /* Clips table-wrap scroll inside card boundary on mobile */
+    overflow: hidden;
+}
+
+.card-title {
+    font-family: var(--lf-font-display);
+    font-size: 22px;
+    letter-spacing: .5px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   STATS GRID
+   ═══════════════════════════════════════════════════════════════════════════ */
 .stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 16px; margin-bottom: 28px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
 }
+
 .stat-card {
-  background: var(--lf-white); border: 1.5px solid var(--lf-gray-200);
-  border-radius: 6px; padding: 20px;
+    background: var(--lf-white);
+    border: 1.5px solid var(--lf-gray-200);
+    border-radius: var(--lf-radius-lg);
+    padding: 18px;
 }
-.stat-card.accent { background: var(--lf-orange); border-color: var(--lf-orange); }
+
+.stat-card.accent {
+    background: var(--lf-orange);
+    border-color: var(--lf-orange);
+}
+
 .stat-card.accent .stat-label,
 .stat-card.accent .stat-value,
-.stat-card.accent .stat-sub { color: #fff; }
-.stat-label { font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--lf-gray-400); }
-.stat-value { font-family: var(--lf-font-display); font-size: 42px; letter-spacing: 1px; line-height: 1.1; margin-top: 4px; }
-.stat-sub   { font-size: 12px; color: var(--lf-gray-600); margin-top: 2px; }
-
-/* ── cards ── */
-.lf-card {
-  background: var(--lf-white); border: 1.5px solid var(--lf-gray-200);
-  border-radius: 6px; padding: 24px; box-shadow: var(--lf-shadow);
+.stat-card.accent .stat-sub {
+    color: #fff;
 }
-.card-title { font-family: var(--lf-font-display); font-size: 22px; letter-spacing: .5px; }
 
-/* ── badges ── */
+.stat-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    color: var(--lf-gray-400);
+}
+
+.stat-value {
+    font-family: var(--lf-font-display);
+    font-size: 40px;
+    letter-spacing: 1px;
+    line-height: 1.1;
+    margin-top: 4px;
+}
+
+.stat-sub {
+    font-size: 12px;
+    color: var(--lf-gray-600);
+    margin-top: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BADGES
+   ═══════════════════════════════════════════════════════════════════════════ */
 .badge {
-  display: inline-block; padding: 3px 9px; border-radius: 20px;
-  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px;
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 9px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    white-space: nowrap;
 }
-.badge-orange { background: var(--lf-orange-light); color: var(--lf-orange); }
-.badge-black  { background: var(--lf-black);        color: #fff; }
-.badge-gray   { background: var(--lf-gray-200);     color: var(--lf-gray-600); }
-.badge-green  { background: #e6f7ee;                color: #25a244; }
-.badge-red    { background: #fff5f5;                color: #e53e3e; }
-.badge-blue   { background: #e8f0fe;                color: #2563eb; }
 
-/* ── type pills ── */
-.type-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
-.type-online { background: #e8f0fe; color: #2563eb; }
-.type-onsite { background: var(--lf-orange-light); color: var(--lf-orange); }
+.badge-orange {
+    background: var(--lf-orange-light);
+    color: var(--lf-orange);
+}
 
-/* ── progress bar ── */
-.progress-bar  { height: 6px; background: var(--lf-gray-200); border-radius: 3px; overflow: hidden; }
-.progress-fill { height: 100%; background: var(--lf-orange); border-radius: 3px; transition: width .3s; }
+.badge-black {
+    background: var(--lf-black);
+    color: #fff;
+}
 
-/* ── attendance colour classes ── */
-.att-good { color: #25a244; font-family: var(--lf-font-display); font-size: 18px; }
-.att-warn { color: var(--lf-orange); font-family: var(--lf-font-display); font-size: 18px; }
-.att-bad  { color: #e53e3e; font-family: var(--lf-font-display); font-size: 18px; }
+.badge-gray {
+    background: var(--lf-gray-200);
+    color: var(--lf-gray-600);
+}
 
-/* ── empty state ── */
-.empty-state { text-align: center; padding: 60px 20px; color: var(--lf-gray-600); }
-.empty-icon  { font-size: 48px; display: block; margin-bottom: 12px; }
+.badge-green {
+    background: var(--lf-green-light);
+    color: var(--lf-green);
+}
 
-/* ── cert badge ── */
+.badge-red {
+    background: var(--lf-red-light);
+    color: var(--lf-red);
+}
+
+.badge-blue {
+    background: var(--lf-blue-light);
+    color: var(--lf-blue);
+}
+
+/* Type pills */
+.type-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+}
+
+.type-online {
+    background: var(--lf-blue-light);
+    color: var(--lf-blue);
+}
+
+.type-onsite {
+    background: var(--lf-orange-light);
+    color: var(--lf-orange);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PROGRESS BAR
+   ═══════════════════════════════════════════════════════════════════════════ */
+.progress-bar {
+    height: 6px;
+    background: var(--lf-gray-200);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--lf-orange);
+    border-radius: 3px;
+    transition: width .3s;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TABLE
+   ═══════════════════════════════════════════════════════════════════════════ */
+.table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    /* Pull edge-to-edge inside lf-card so scroll shadow reaches the card border */
+    margin: 0 -24px;
+    padding: 0 24px;
+    /* Scroll shadow hint — appears when content overflows right */
+    background: linear-gradient(to right, white 30%, rgba(255, 255, 255, 0)),
+    linear-gradient(to right, rgba(255, 255, 255, 0), white 70%) 0 100%,
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, .08), transparent),
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, .08), transparent) 0 100%;
+    background-repeat: no-repeat;
+    background-color: white;
+    background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
+    background-position: 0 0, 100%, 0 0, 100%;
+    background-attachment: local, local, scroll, scroll;
+}
+
+.lf-table {
+    width: 100%;
+    border-collapse: collapse;
+    /* Prevents table from squishing — forces horizontal scroll instead */
+    min-width: 350px;
+}
+
+.lf-table th {
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .7px;
+    text-transform: uppercase;
+    color: var(--lf-gray-600);
+    border-bottom: 2px solid var(--lf-gray-200);
+    white-space: nowrap;
+}
+
+.lf-table td {
+    padding: 12px 14px;
+    font-size: 14px;
+    border-bottom: 1px solid var(--lf-gray-200);
+    vertical-align: middle;
+}
+
+.lf-table tr:last-child td {
+    border-bottom: none;
+}
+
+.lf-table tr:hover td {
+    background: var(--lf-gray-50);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FORM ELEMENTS — global so no scoped .form-control anywhere
+   ═══════════════════════════════════════════════════════════════════════════ */
+.lf-input, .lf-select, .lf-textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border: 2px solid var(--lf-gray-200);
+    border-radius: var(--lf-radius);
+    font-family: var(--lf-font-body);
+    font-size: 14px;
+    color: var(--lf-black);
+    background: var(--lf-white);
+    outline: none;
+    transition: border-color .15s;
+    appearance: none;
+}
+
+.lf-input:focus, .lf-select:focus, .lf-textarea:focus {
+    border-color: var(--lf-orange);
+}
+
+.lf-textarea {
+    resize: vertical;
+    min-height: 80px;
+    line-height: 1.6;
+}
+
+.lf-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23555' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+}
+
+.lf-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    color: var(--lf-gray-600);
+    margin-bottom: 6px;
+}
+
+.lf-hint {
+    font-size: 12px;
+    color: var(--lf-gray-400);
+    margin-top: 4px;
+}
+
+.lf-error-msg {
+    font-size: 12px;
+    color: var(--lf-red);
+    margin-top: 4px;
+}
+
+.lf-form-group {
+    margin-bottom: 16px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ATTENDANCE COLORS
+   ═══════════════════════════════════════════════════════════════════════════ */
+.att-good {
+    color: var(--lf-green);
+    font-family: var(--lf-font-display);
+    font-size: 18px;
+}
+
+.att-warn {
+    color: var(--lf-orange);
+    font-family: var(--lf-font-display);
+    font-size: 18px;
+}
+
+.att-bad {
+    color: var(--lf-red);
+    font-family: var(--lf-font-display);
+    font-size: 18px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CERT BADGE
+   ═══════════════════════════════════════════════════════════════════════════ */
 .cert-badge {
-  display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px;
-  background: var(--lf-orange-light); border: 1.5px solid var(--lf-orange);
-  border-radius: 20px; font-size: 12px; font-weight: 700; color: var(--lf-orange);
-  text-transform: uppercase; letter-spacing: .5px; cursor: pointer; transition: all .15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    background: var(--lf-orange-light);
+    border: 1.5px solid var(--lf-orange);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--lf-orange);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    cursor: pointer;
+    transition: all .15s;
 }
-.cert-badge:hover { background: var(--lf-orange); color: #fff; }
 
-/* ── scrollbar ── */
-::-webkit-scrollbar       { width: 6px; }
-::-webkit-scrollbar-track { background: var(--lf-gray-100); }
-::-webkit-scrollbar-thumb { background: var(--lf-gray-200); border-radius: 3px; }
+.cert-badge:hover {
+    background: var(--lf-orange);
+    color: #fff;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EMPTY STATE
+   ═══════════════════════════════════════════════════════════════════════════ */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--lf-gray-600);
+}
+
+.empty-icon {
+    font-size: 48px;
+    display: block;
+    margin-bottom: 12px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AVATAR
+   ═══════════════════════════════════════════════════════════════════════════ */
+.lf-avatar {
+    border-radius: 50%;
+    background: var(--lf-orange);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.lf-avatar-sm {
+    width: 30px;
+    height: 30px;
+    font-size: 12px;
+}
+
+.lf-avatar-md {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+}
+
+.lf-avatar-lg {
+    width: 52px;
+    height: 52px;
+    font-size: 22px;
+}
+
+.lf-avatar-xl {
+    width: 64px;
+    height: 64px;
+    font-size: 26px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SESSION CODE CHIP
+   ═══════════════════════════════════════════════════════════════════════════ */
+.session-code {
+    font-family: monospace;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: var(--lf-orange);
+    background: var(--lf-orange-light);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COURSE CARD
+   ═══════════════════════════════════════════════════════════════════════════ */
+.courses-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PRIMEVUE OVERRIDES — match LearnForge design tokens
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Dialog */
+.p-dialog .p-dialog-header {
+    padding: 20px 24px;
+    border-bottom: 1.5px solid var(--lf-gray-200);
+    font-family: var(--lf-font-display);
+    font-size: 22px;
+    letter-spacing: .4px;
+}
+
+.p-dialog .p-dialog-content {
+    padding: 24px;
+}
+
+.p-dialog .p-dialog-footer {
+    padding: 16px 24px;
+    border-top: 1.5px solid var(--lf-gray-200);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* ── Buttons — plain <button> with global classes ─────────────────────────
+   Use <button class="btn btn-primary"> everywhere.
+   Use <PButton> ONLY when you need :loading spinner or complex states.
+   For PButton, pass colors via the pt prop (see main.js PButton defaults).
+   ──────────────────────────────────────────────────────────────────────── */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 18px;
+    border: 1.5px solid transparent;
+    border-radius: var(--lf-radius);
+    font-family: var(--lf-font-body);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+    text-decoration: none;
+    line-height: 1;
+}
+
+.btn:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+}
+
+.btn-sm {
+    padding: 6px 13px;
+    font-size: 12px;
+}
+
+.btn-lg {
+    padding: 12px 28px;
+    font-size: 16px;
+}
+
+.btn-primary {
+    background: var(--lf-orange);
+    border-color: var(--lf-orange);
+    color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: var(--lf-orange-dark);
+    border-color: var(--lf-orange-dark);
+}
+
+.btn-secondary {
+    background: var(--lf-black);
+    border-color: var(--lf-black);
+    color: #fff;
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: #222;
+    border-color: #222;
+}
+
+.btn-ghost {
+    background: transparent;
+    border-color: var(--lf-gray-200);
+    color: var(--lf-gray-600);
+}
+
+.btn-ghost:hover:not(:disabled) {
+    border-color: var(--lf-black);
+    color: var(--lf-black);
+}
+
+.btn-outline {
+    background: transparent;
+    border-color: var(--lf-black);
+    color: var(--lf-black);
+}
+
+.btn-outline:hover:not(:disabled) {
+    background: var(--lf-black);
+    color: #fff;
+}
+
+.btn-danger {
+    background: var(--lf-red);
+    border-color: var(--lf-red);
+    color: #fff;
+}
+
+.btn-danger:hover:not(:disabled) {
+    background: #c53030;
+    border-color: #c53030;
+}
+
+/* PButton passthrough — matches our .btn styles without fighting the theme.
+   Applied globally in main.js via app.config.globalProperties or pt defaults. */
+.p-button {
+    --p-button-primary-background: var(--lf-orange) !important;
+    --p-button-primary-border-color: var(--lf-orange) !important;
+    --p-button-primary-color: #fff !important;
+    --p-button-primary-hover-background: var(--lf-orange-dark) !important;
+    --p-button-primary-hover-border-color: var(--lf-orange-dark) !important;
+    font-family: var(--lf-font-body) !important;
+    font-weight: 600 !important;
+    border-radius: var(--lf-radius) !important;
+}
+
+/* InputText / Textarea / Select match lf-input style */
+.p-inputtext, .p-textarea, .p-select {
+    border: 2px solid var(--lf-gray-200) !important;
+    border-radius: var(--lf-radius) !important;
+    font-family: var(--lf-font-body) !important;
+    font-size: 14px !important;
+}
+
+.p-inputtext:focus, .p-textarea:focus, .p-select.p-focus {
+    border-color: var(--lf-orange) !important;
+    box-shadow: none !important;
+}
+
+/* DataTable */
+.p-datatable .p-datatable-thead > tr > th {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .7px;
+    text-transform: uppercase;
+    color: var(--lf-gray-600);
+    background: var(--lf-white);
+    border-bottom: 2px solid var(--lf-gray-200) !important;
+}
+
+.p-datatable .p-datatable-tbody > tr > td {
+    font-size: 14px;
+    border-bottom: 1px solid var(--lf-gray-200) !important;
+    vertical-align: middle;
+}
+
+.p-datatable .p-datatable-tbody > tr:hover > td {
+    background: var(--lf-gray-50) !important;
+}
+
+.p-datatable .p-datatable-tbody > tr:last-child > td {
+    border-bottom: none !important;
+}
+
+/* Tag component → badge style */
+.p-tag {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .4px;
+    border-radius: 20px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCROLLBAR
+   ═══════════════════════════════════════════════════════════════════════════ */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--lf-gray-100);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--lf-gray-200);
+    border-radius: 3px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LAYOUT UTILITIES — used by views instead of inline grid styles
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Two-column content + sidebar layout (LessonView, CourseView) */
+.lf-content-sidebar {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 24px;
+    align-items: start;
+}
+
+/* Two equal columns (AdminDashboard, forms) */
+.lf-col-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+
+/* Two equal columns tighter gap (form rows) */
+.lf-col-2-sm {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+/* Sticky sidebar card */
+.lf-sticky-card {
+    position: sticky;
+    top: calc(var(--topbar-h) + 16px);
+}
+
+/* Auth split layout (Login, Setup) */
+.lf-auth-page {
+    min-height: 100vh;
+    display: flex;
+}
+
+.lf-auth-left {
+    width: 44%;
+    background: var(--lf-black);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 60px;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.lf-auth-right {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    overflow-y: auto;
+}
+
+.lf-auth-form-wrap {
+    width: 100%;
+    max-width: 400px;
+}
+
+/* Code entry (CheckIn) */
+.lf-code-wrap {
+    max-width: 480px;
+    margin: 0 auto;
+}
+
+.lf-code-input {
+    width: 100%;
+    text-align: center;
+    font-family: var(--lf-font-display);
+    font-size: 40px;
+    letter-spacing: 12px;
+    padding: 20px;
+    border: 3px solid var(--lf-gray-200);
+    border-radius: 8px;
+    outline: none;
+    color: var(--lf-black);
+    text-transform: uppercase;
+    transition: border-color .2s;
+}
+
+.lf-code-input:focus {
+    border-color: var(--lf-orange);
+}
+
+/* Exam wrap */
+.lf-exam-wrap {
+    max-width: 680px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE — Breakpoints
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Tablet ≤ 900px ──────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+    /* Sidebar becomes a drawer */
+    .lf-main-content {
+        margin-left: 0;
+    }
+
+    .lf-sidebar {
+        transform: translateX(-100%);
+    }
+
+    .lf-sidebar.open {
+        transform: translateX(0);
+    }
+
+    .lf-sidebar-overlay.open {
+        display: block;
+    }
+
+    .lf-topbar-hamburger {
+        display: flex;
+    }
+
+    /* Auth: stack vertically, hide decorative left panel */
+    .lf-auth-left {
+        display: none;
+    }
+
+    .lf-auth-right {
+        padding: 32px 20px;
+    }
+
+    /* Content + sidebar: stack */
+    .lf-content-sidebar {
+        grid-template-columns: 1fr;
+    }
+
+    .lf-sticky-card {
+        position: static;
+    }
+
+    /* Dashboard 2-col → 1-col */
+    .lf-col-2 {
+        grid-template-columns: 1fr;
+    }
+
+    /* Stats grid → 2-col */
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    /* Courses grid — tighten min */
+    .courses-grid {
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    }
+
+    .page-content {
+        padding: 16px;
+    }
+
+    .lf-topbar {
+        padding: 0 16px;
+    }
+
+
+}
+
+/* ── Mobile ≤ 600px ──────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+    /* Auth page — full-width form on phone */
+    .lf-auth-page {
+        flex-direction: column;
+    }
+
+    .lf-auth-right {
+        padding: 24px 16px;
+    }
+
+    .lf-auth-form-wrap {
+        max-width: 100%;
+    }
+
+    /* Stats: always 2 col, tighter on small phones */
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .stat-value {
+        font-size: 32px;
+    }
+
+    .stat-card {
+        padding: 14px;
+    }
+
+    /* Courses: single col */
+    .courses-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Form col-2 → single col */
+    .lf-col-2-sm {
+        grid-template-columns: 1fr;
+    }
+
+    /* Cards */
+    .lf-card {
+        padding: 14px;
+    }
+
+    .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    /* Tables: horizontal scroll, hide low-priority columns */
+    .lf-table .hide-mobile {
+        display: none;
+    }
+
+    /* Topbar */
+    .lf-topbar-title {
+        font-size: 20px;
+    }
+
+    .lf-topbar {
+        padding: 0 12px;
+    }
+
+    .progress-bar {
+        display: none;
+    }
+
+    /* Code input — smaller on phone */
+    .lf-code-input {
+        font-size: 28px;
+        letter-spacing: 8px;
+        padding: 14px;
+    }
+
+    /* Exam wrap — no max-width constraint on phone */
+    .lf-exam-wrap {
+        max-width: 100%;
+    }
+
+    /* Dialogs full-width */
+    .p-dialog {
+        width: 95vw !important;
+        max-width: 95vw !important;
+    }
+
+    .p-dialog .p-dialog-content {
+        padding: 14px;
+    }
+
+    .p-dialog .p-dialog-header {
+        padding: 14px;
+    }
+
+    .p-dialog .p-dialog-footer {
+        padding: 12px 14px;
+        flex-wrap: wrap;
+    }
+
+    /* Action buttons in topbar — allow wrap */
+    .lf-topbar-actions {
+        gap: 6px;
+    }
+
+    .lf-topbar-actions .btn {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+}

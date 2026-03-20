@@ -61,6 +61,29 @@ export const useExamsStore = defineStore('exams', () => {
     return getResultsByCourse(courseId)[0] ?? null
   }
 
+  /**
+   * Upload (or delete) the image for a single question.
+   * examId   — the exam's UUID
+   * questionId — the question's UUID
+   * imageFile  — File object to upload, or null to remove the image
+   */
+  async function uploadQuestionImage(examId, questionId, imageFile) {
+    if (!imageFile) {
+      const { data } = await api.delete(
+        `/exams/${examId}/questions/${questionId}/image/`
+      )
+      return data
+    }
+    const fd = new FormData()
+    fd.append('image', imageFile, imageFile.name)
+    const { data } = await api.post(
+      `/exams/${examId}/questions/${questionId}/image/`,
+      fd
+      // No Content-Type header — Axios sets multipart/form-data with boundary automatically
+    )
+    return data  // { image_url: '...' }
+  }
+
   async function gradeOpenAnswer(resultId, questionIndex, grade) {
     const { data } = await api.patch(`/exams/results/${resultId}/grade-open/`, {
       question_index: questionIndex,
@@ -73,7 +96,7 @@ export const useExamsStore = defineStore('exams', () => {
 
   return {
     exams, results, loading,
-    fetchExam, fetchExamByCourse, saveExam, deleteExam,
+    fetchExam, fetchExamByCourse, saveExam, deleteExam, uploadQuestionImage,
     submitExam, fetchResults, getResultsByCourse, getLatestResult,
     gradeOpenAnswer,
   }

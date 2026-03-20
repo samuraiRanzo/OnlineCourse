@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, JSONParser
 
 from apps.users.permissions import IsAdmin
 from .models import Exam, Question, ExamResult
@@ -12,15 +13,14 @@ from .serializers import (
 
 
 def _calculate_score(exam, answers: dict) -> int:
-    """Calculate MCQ score as a percentage. Open questions are excluded."""
     mcq_questions = exam.questions.filter(type='mcq')
     total = mcq_questions.count()
     if total == 0:
         return 100
     correct = 0
     for q in mcq_questions:
-        idx        = str(q.order)
-        user_ans   = answers.get(idx)
+        idx      = str(q.order)
+        user_ans = answers.get(idx)
         if user_ans is not None and int(user_ans) == q.correct_index:
             correct += 1
     return round((correct / total) * 100)
@@ -47,7 +47,14 @@ class ExamViewSet(viewsets.ModelViewSet):
 
 
 class QuestionViewSet(viewsets.ModelViewSet):
+    # Accepts both JSON (structure) and multipart (image upload)
+    parser_classes = [MultiPartParser, JSONParser]
     serializer_class = QuestionSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -62,6 +69,36 @@ class QuestionViewSet(viewsets.ModelViewSet):
         last_order = exam.questions.count()
         serializer.save(exam=exam, order=last_order)
 
+    @action(detail=True, methods=['post', 'delete'], permission_classes=[IsAdmin],
+            url_path='image', parser_classes=[MultiPartParser])
+    def image(self, request, exam_pk=None, pk=None):
+        """
+        POST  — upload / replace the question image
+        DELETE — remove the question image
+        """
+        question = self.get_object()
+
+        if request.method == 'DELETE':
+            if question.image:
+                question.image.delete(save=False)
+            question.image = None
+            question.save(update_fields=['image'])
+            return Response({'image_url': None})
+
+        # POST
+        uploaded = request.FILES.get('image')
+        if not uploaded:
+            return Response({'detail': 'No image file provided.'}, status=400)
+
+        # Delete old image from storage before replacing
+        if question.image:
+            question.image.delete(save=False)
+
+        question.image = uploaded
+        question.save(update_fields=['image'])
+        serializer = QuestionSerializer(question, context={'request': request})
+        return Response({'image_url': serializer.data['image_url']})
+
 
 class ExamResultViewSet(viewsets.ModelViewSet):
     serializer_class = ExamResultSerializer
@@ -74,7 +111,6 @@ class ExamResultViewSet(viewsets.ModelViewSet):
         qs = ExamResult.objects.select_related('exam__course', 'student')
         if self.request.user.is_student:
             return qs.filter(student=self.request.user)
-        # Admin can filter by student or exam
         student_id = self.request.query_params.get('student')
         exam_id    = self.request.query_params.get('exam')
         if student_id:
@@ -84,12 +120,6 @@ class ExamResultViewSet(viewsets.ModelViewSet):
         return qs
 
     def create(self, request, *args, **kwargs):
-        """
-        Student submits exam answers.
-        POST /api/exams/results/ { "exam": <uuid>, "answers": { "0": 2, "1": "text" } }
-        Score is calculated server-side. Attempt number is auto-incremented.
-        Blocked if the student has used all allowed retakes.
-        """
         serializer = SubmitExamSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -99,11 +129,9 @@ class ExamResultViewSet(viewsets.ModelViewSet):
         except Exam.DoesNotExist:
             return Response({'detail': 'Exam not found.'}, status=404)
 
-        # Verify enrollment
         if not request.user.enrollments.filter(course=exam.course).exists():
             return Response({'detail': 'Not enrolled in this course.'}, status=403)
 
-        # Enforce retake limit (0 = unlimited)
         attempts_so_far = ExamResult.objects.filter(
             exam=exam, student=request.user
         ).count()
@@ -111,9 +139,11 @@ class ExamResultViewSet(viewsets.ModelViewSet):
         if exam.max_retakes > 0 and attempts_so_far >= exam.max_retakes:
             return Response(
                 {
-                    'detail': f'Retake limit reached. '
-                              f'This exam allows {exam.max_retakes} attempt(s). '
-                              f'You have used {attempts_so_far}.',
+                    'detail': (
+                        f'Retake limit reached. '
+                        f'This exam allows {exam.max_retakes} attempt(s). '
+                        f'You have used {attempts_so_far}.'
+                    ),
                     'attempts_used': attempts_so_far,
                     'max_retakes':   exam.max_retakes,
                 },
@@ -143,10 +173,6 @@ class ExamResultViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['patch'], permission_classes=[IsAdmin],
             url_path='grade-open')
     def grade_open(self, request, pk=None):
-        """
-        Admin grades an open answer.
-        PATCH { "question_index": 2, "grade": "Pass" }
-        """
         result     = self.get_object()
         serializer = GradeOpenAnswerSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

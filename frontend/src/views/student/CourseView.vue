@@ -4,7 +4,7 @@
       <button class="btn btn-ghost btn-sm" @click="$router.push('/my-courses')">← My Courses</button>
     </div>
 
-    <div class="course-detail-layout">
+    <div class="lf-content-sidebar">
       <!-- Main content -->
       <div>
         <div class="lf-card" style="margin-bottom:20px">
@@ -63,7 +63,7 @@
       </div>
 
       <!-- Sidebar card -->
-      <div class="course-sidebar-card">
+      <div class="course-sidebar-card lf-sticky-card">
         <div class="course-sidebar-thumb">{{ course.icon || '📚' }}</div>
         <div class="course-sidebar-info">
           <h3 class="display" style="font-size:22px;letter-spacing:.4px">{{ course.title }}</h3>
@@ -239,8 +239,7 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.course-detail-layout { display: grid; grid-template-columns: 1fr 320px; gap: 24px; align-items: start; }
-.course-sidebar-card  { background: var(--lf-white); border: 1.5px solid var(--lf-gray-200); border-radius: 8px; overflow: hidden; position: sticky; top: 90px; }
+.course-sidebar-card  { background: var(--lf-white); border: 1.5px solid var(--lf-gray-200); border-radius: 8px; overflow: hidden; }
 .course-sidebar-thumb { height: 160px; background: var(--lf-black); display: flex; align-items: center; justify-content: center; font-family: var(--lf-font-display); font-size: 56px; color: var(--lf-orange); }
 .course-sidebar-info  { padding: 20px; }
 .lesson-list  { border: 1.5px solid var(--lf-gray-200); border-radius: 6px; overflow: hidden; }
@@ -260,8 +259,5 @@ onMounted(async () => {
 .btn-ghost    { background: transparent; color: var(--lf-gray-600); border: 1px solid var(--lf-gray-200); }
 .btn-ghost:hover { border-color: var(--lf-black); color: var(--lf-black); }
 .btn-sm { padding: 6px 14px; font-size: 12px; }
-@media (max-width: 900px) {
-  .course-detail-layout { grid-template-columns: 1fr; }
-  .course-sidebar-card { position: static; }
-}
+
 </style>

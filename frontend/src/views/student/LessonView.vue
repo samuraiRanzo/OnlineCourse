@@ -1,7 +1,6 @@
 <template>
   <div class="page-content" v-if="lesson">
-    <div style="display:grid;grid-template-columns:1fr 280px;gap:24px;align-items:start">
-
+    <div class="lf-content-sidebar">
       <!-- ── Main viewer ── -->
       <div class="lesson-viewer">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
@@ -183,7 +182,7 @@
       <!-- end main viewer -->
 
       <!-- ── Sidebar ── -->
-      <div class="lf-card" style="padding:0;overflow:hidden;position:sticky;top:90px">
+      <div class="lf-card lf-sticky-card" style="padding:0;overflow:hidden">
         <div style="padding:16px 18px;border-bottom:1.5px solid var(--lf-gray-200)">
           <strong style="font-size:14px">Course Contents</strong>
         </div>
@@ -393,7 +392,7 @@ onMounted(async () => {
 
 <style scoped>
 /* ── Lesson viewer ── */
-.lesson-viewer { background: var(--lf-white); border: 1.5px solid var(--lf-gray-200); border-radius: 8px; padding: 32px; }
+.lesson-viewer { background: var(--lf-white); border: 1.5px solid var(--lf-gray-200); border-radius: 8px; padding: 16px; }
 .lesson-text   { line-height: 1.8; color: var(--lf-black); font-size: 15px; }
 
 .video-wrap  { margin-top: 4px; background: #000; border-radius: 6px; overflow: hidden; aspect-ratio: 16/9; }

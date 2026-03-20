@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="page-content">
     <div class="stats-grid">
       <div class="stat-card accent">
         <div class="stat-label">Total Students</div>
@@ -23,14 +23,15 @@
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+    <div class="lf-col-2">
       <div class="lf-card">
         <div class="section-header" style="margin-bottom:16px">
           <div class="card-title">Recent Students</div>
           <RouterLink to="/students" class="btn btn-ghost btn-sm">View all</RouterLink>
         </div>
         <p v-if="!recentStudents.length" class="text-muted text-sm">No students yet.</p>
-        <table v-else class="lf-table">
+        <div v-else class="table-wrap">
+        <table class="lf-table">
           <thead><tr><th>Name</th><th>Type</th><th>Email</th></tr></thead>
           <tbody>
             <tr v-for="s in recentStudents" :key="s.id">
@@ -40,6 +41,7 @@
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
 
       <div class="lf-card">
@@ -47,7 +49,8 @@
           <div class="card-title">Recent Exam Results</div>
         </div>
         <p v-if="!recentResults.length" class="text-muted text-sm">No results yet.</p>
-        <table v-else class="lf-table">
+        <div v-else  class="table-wrap">
+        <table class="lf-table">
           <thead><tr><th>Student</th><th>Course</th><th>Score</th></tr></thead>
           <tbody>
             <tr v-for="r in recentResults" :key="r.id">
@@ -57,6 +60,7 @@
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   </div>

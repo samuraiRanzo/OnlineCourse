@@ -1,38 +1,26 @@
 from rest_framework import serializers
 from django.conf import settings
-from django.utils import timezone
 from .models import Course, Lesson, Enrollment, LessonCompletion, LessonQuestion, LessonAnswer, LessonAttachment
 
 
 class LessonAttachmentSerializer(serializers.ModelSerializer):
     stream_url = serializers.SerializerMethodField()
-    extension = serializers.CharField(read_only=True)
+    extension  = serializers.CharField(read_only=True)
 
     class Meta:
-        model = LessonAttachment
-        # 👇 FIX 1: Add 'file' right here!
+        model  = LessonAttachment
         fields = ['id', 'name', 'file', 'file_size', 'extension', 'stream_url', 'uploaded_at']
         read_only_fields = ['id', 'file_size', 'extension', 'stream_url', 'uploaded_at']
-        # 👇 FIX 2: Make it write_only so it only processes on upload
         extra_kwargs = {
-            'file': {'write_only': True}
+            'file': {'write_only': True},
         }
 
-
     def get_stream_url(self, obj):
-        """
-        Always points to the Django /api/ stream endpoint, never /media/.
-        Works in every environment (dev Vite proxy, Docker Nginx, production)
-        because the browser resolves it relative to its current origin.
-        """
-        # 1. SAFETY CHECK: If there is no file, return None immediately
         if not obj.file or not obj.file.name:
             return None
-
         request = self.context.get('request')
-        from django.urls import reverse
+        view    = self.context.get('view')
         try:
-            view = self.context.get('view')
             course_pk = view.kwargs.get('course_pk') if view else None
             lesson_pk = view.kwargs.get('lesson_pk') if view else None
             if course_pk and lesson_pk:
@@ -42,8 +30,6 @@ class LessonAttachmentSerializer(serializers.ModelSerializer):
                 return path
         except Exception:
             pass
-
-        # Fallback — direct media URL
         if request:
             return request.build_absolute_uri(obj.file.url)
         return obj.file.url
@@ -82,20 +68,22 @@ class LessonSerializer(serializers.ModelSerializer):
 class CourseSerializer(serializers.ModelSerializer):
     lessons      = serializers.SerializerMethodField()
     lesson_count = serializers.SerializerMethodField()
+    # FIX B3: declare exam explicitly so courses without an exam return null
+    # instead of crashing with RelatedObjectDoesNotExist / ImproperlyConfigured
+    exam         = serializers.SerializerMethodField()
 
     class Meta:
         model  = Course
         fields = [
             'id', 'title', 'description', 'icon',
             'attendance_threshold', 'status', 'published_at',
-            'created_at', 'lessons', 'lesson_count','exam'
+            'created_at', 'lessons', 'lesson_count', 'exam',
         ]
         read_only_fields = ['id', 'created_at', 'published_at']
 
     def get_lessons(self, obj):
         request = self.context.get('request')
         qs = obj.lessons.all()
-        # Students only see published lessons
         if request and request.user.is_authenticated and request.user.is_student:
             qs = qs.filter(status='published')
         return LessonSerializer(qs, many=True, context=self.context).data
@@ -106,17 +94,26 @@ class CourseSerializer(serializers.ModelSerializer):
             return obj.lessons.filter(status='published').count()
         return obj.lessons.count()
 
+    def get_exam(self, obj):
+        """Return the exam PK (UUID) if one exists, else null."""
+        try:
+            return str(obj.exam.id)
+        except Exception:
+            return None
+
 
 class CourseListSerializer(serializers.ModelSerializer):
-    lesson_count         = serializers.SerializerMethodField()
+    lesson_count           = serializers.SerializerMethodField()
     published_lesson_count = serializers.SerializerMethodField()
+    # FIX B3: same fix for the list serializer
+    exam                   = serializers.SerializerMethodField()
 
     class Meta:
         model  = Course
         fields = [
             'id', 'title', 'description', 'icon',
             'attendance_threshold', 'status', 'published_at',
-            'created_at', 'lesson_count', 'published_lesson_count','exam'
+            'created_at', 'lesson_count', 'published_lesson_count', 'exam',
         ]
         read_only_fields = ['id', 'created_at', 'published_at']
 
@@ -125,6 +122,12 @@ class CourseListSerializer(serializers.ModelSerializer):
 
     def get_published_lesson_count(self, obj):
         return obj.lessons.filter(status='published').count()
+
+    def get_exam(self, obj):
+        try:
+            return str(obj.exam.id)
+        except Exception:
+            return None
 
 
 class EnrollmentSerializer(serializers.ModelSerializer):
@@ -171,7 +174,7 @@ class LessonAnswerSerializer(serializers.ModelSerializer):
         model  = LessonAnswer
         fields = ['id', 'question', 'author', 'author_name', 'is_teacher',
                   'body', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'author', 'created_at', 'updated_at','question']
+        read_only_fields = ['id', 'author', 'created_at', 'updated_at', 'question']
 
     def get_is_teacher(self, obj):
         return obj.author.role == 'admin'
@@ -187,4 +190,4 @@ class LessonQuestionSerializer(serializers.ModelSerializer):
         fields = ['id', 'lesson', 'author', 'author_name',
                   'body', 'is_resolved', 'created_at', 'updated_at',
                   'answers', 'answer_count']
-        read_only_fields = ['id', 'author', 'created_at', 'updated_at','lesson']
+        read_only_fields = ['id', 'author', 'created_at', 'updated_at', 'lesson']

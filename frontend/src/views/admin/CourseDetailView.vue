@@ -1,9 +1,6 @@
 <template>
   <div>
-    <AppTopbar>
-      <template #actions>
-        <div style="display:flex;gap:8px;align-items:center">
-          <button class="btn btn-ghost btn-sm" @click="$router.push('/courses')">← Back</button>
+
           <!-- Course publish/unpublish toggle -->
           <div v-if="course" class="course-status-pill" :class="course.status">
             {{ course.status === 'published' ? '✓ Published' : '✎ Draft' }}
@@ -18,9 +15,6 @@
             {{ togglingCourse ? '…' : course.status === 'published' ? 'Unpublish' : '🚀 Publish Course' }}
           </button>
           <button class="btn btn-danger btn-sm" @click="handleDelete">Delete</button>
-        </div>
-      </template>
-    </AppTopbar>
 
     <div class="page-content" v-if="course">
       <!-- Tabs -->
@@ -116,7 +110,9 @@
       <div v-if="activeTab === 'exam'">
         <div class="section-header">
           <div class="section-title">Exam Builder</div>
-          <button class="btn btn-primary btn-sm" @click="saveExam">💾 Save Exam</button>
+          <button class="btn btn-primary btn-sm" :disabled="savingExam" @click="saveExam">
+            {{ savingExam ? 'Saving…' : '💾 Save Exam' }}
+          </button>
         </div>
         <div class="lf-card" style="margin-bottom:20px">
           <FormGroup label="Exam Title">
@@ -140,9 +136,38 @@
             <strong>Q{{ qi + 1 }} — {{ q.type === 'mcq' ? 'Multiple Choice' : 'Open Answer' }}</strong>
             <button class="btn btn-danger btn-sm" @click="removeQuestion(qi)">Remove</button>
           </div>
+
           <FormGroup label="Question Text">
             <input v-model="q.text" class="form-control" />
           </FormGroup>
+
+          <!-- ── Image attachment ── -->
+          <div class="q-image-row">
+            <!-- Preview of saved or newly-picked image -->
+            <div v-if="q.imagePreview || q.image_url" class="q-image-preview">
+              <img :src="q.imagePreview || q.image_url" alt="Question image" />
+              <button
+                class="q-image-remove"
+                title="Remove image"
+                @click="removeQuestionImage(qi)"
+              >✕</button>
+            </div>
+
+            <!-- Upload zone (hidden when image already present) -->
+            <label v-else class="q-image-drop" :for="`q-img-${qi}`">
+              <input
+                :id="`q-img-${qi}`"
+                type="file"
+                accept="image/*"
+                style="display:none"
+                @change="e => pickQuestionImage(qi, e)"
+              />
+              <span style="font-size:22px">🖼️</span>
+              <span style="font-size:13px;font-weight:600">Add image</span>
+              <span class="text-muted text-sm">PNG, JPG, GIF</span>
+            </label>
+          </div>
+
           <div v-if="q.type === 'mcq'">
             <label class="form-label">Options (select correct)</label>
             <div v-for="(opt, oi) in q.options" :key="oi" style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
@@ -423,7 +448,6 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter }    from 'vue-router'
 import { useToast }               from 'primevue/usetoast'
-import AppTopbar                  from '@/components/layout/AppTopbar.vue'
 import BaseModal                  from '@/components/ui/BaseModal.vue'
 import FormGroup                  from '@/components/ui/FormGroup.vue'
 import EmptyState                 from '@/components/ui/EmptyState.vue'
@@ -706,8 +730,7 @@ async function handleAttachFiles(e) {
   attachUploading.value = true
   try {
     for (const file of files) {
-      console.log(file)
-      await courses.uploadAttachment(route.params.id, editLesson.value.id, file,file.name)
+      await courses.uploadAttachment(route.params.id, editLesson.value.id, file)
     }
     // Sync editLesson ref from updated store
     editLesson.value = courses.current?.lessons?.find(l => l.id === editLesson.value.id) ?? editLesson.value
@@ -727,20 +750,92 @@ async function handleDeleteAttachment(attachmentId) {
 }
 
 // ── Exam ─────────────────────────────────────────────────────
-const examDraft = reactive({ title: '', max_retakes: 0, questions: [] })
+const examDraft  = reactive({ title: '', max_retakes: 0, questions: [] })
+const savingExam = ref(false)
+// examId tracks the saved exam UUID so we can POST images to the right endpoint
+const savedExamId = ref(null)
 
 function addQuestion(type) {
   examDraft.questions.push(
     type === 'mcq'
-      ? { type: 'mcq', text: '', options: ['', '', '', ''], correct_index: 0 }
-      : { type: 'open', text: '' }
+      ? { type: 'mcq', text: '', options: ['', '', '', ''], correct_index: 0,
+          image_url: null, imagePreview: null, _imageFile: null, _removeImage: false }
+      : { type: 'open', text: '',
+          image_url: null, imagePreview: null, _imageFile: null, _removeImage: false }
   )
 }
+
 function removeQuestion(qi) { examDraft.questions.splice(qi, 1) }
 
+function pickQuestionImage(qi, event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  const q = examDraft.questions[qi]
+  q._imageFile    = file
+  q._removeImage  = false
+  q.imagePreview  = URL.createObjectURL(file)
+  event.target.value = ''   // allow re-selecting the same file
+}
+
+function removeQuestionImage(qi) {
+  const q = examDraft.questions[qi]
+  q._imageFile   = null
+  q._removeImage = true
+  if (q.imagePreview) {
+    URL.revokeObjectURL(q.imagePreview)
+    q.imagePreview = null
+  }
+  q.image_url = null
+}
+
 async function saveExam() {
-  await exStore.saveExam(route.params.id, { title: examDraft.title, questions: examDraft.questions })
-  toast.add({ severity: 'success', summary: 'Exam saved', life: 3000 })
+  if (!examDraft.title.trim()) {
+    toast.add({ severity: 'warn', summary: 'Please add an exam title', life: 3000 })
+    return
+  }
+  savingExam.value = true
+  try {
+    // 1. Save exam structure (text, options — no images yet)
+    const payload = {
+      title:       examDraft.title,
+      max_retakes: examDraft.max_retakes,
+      questions:   examDraft.questions.map(q => ({
+        type:          q.type,
+        text:          q.text,
+        options:       q.options ?? [],
+        correct_index: q.correct_index ?? null,
+      })),
+    }
+    const saved = await exStore.saveExam(route.params.id, payload)
+    savedExamId.value = saved.id
+
+    // 2. Upload / remove images for questions that changed
+    // Reload fresh question list (with server-assigned IDs and order)
+    const fresh = await exStore.fetchExam(saved.id)
+    for (let i = 0; i < examDraft.questions.length; i++) {
+      const q      = examDraft.questions[i]
+      const server = fresh.questions[i]
+      if (!server) continue
+
+      if (q._imageFile) {
+        const prevUrl  = q.imagePreview        // capture before nulling
+        const result   = await exStore.uploadQuestionImage(saved.id, server.id, q._imageFile)
+        q.image_url    = result.image_url
+        q._imageFile   = null
+        if (prevUrl) URL.revokeObjectURL(prevUrl)   // revoke the blob URL to free memory
+        q.imagePreview = null
+      } else if (q._removeImage && server.image_url) {
+        await exStore.uploadQuestionImage(saved.id, server.id, null)
+        q._removeImage = false
+      }
+    }
+
+    toast.add({ severity: 'success', summary: 'Exam saved', life: 3000 })
+  } catch (e) {
+    toast.add({ severity: 'error', summary: 'Failed to save exam', life: 4000 })
+  } finally {
+    savingExam.value = false
+  }
 }
 
 // ── Session ──────────────────────────────────────────────────
@@ -811,12 +906,21 @@ onMounted(async () => {
     attStore.fetchSessions(id),
     annStore.fetchAnnouncements(id),
     exStore.fetchExamByCourse(id).then(exam => {
-      if (exam) Object.assign(examDraft, {
-        title:       exam.title,
-        max_retakes: exam.max_retakes ?? 0,
-        questions:   exam.questions.map(q => ({ ...q })),
-      })
-      else examDraft.title = courses.current?.title + ' Exam'
+      if (exam) {
+        savedExamId.value = exam.id
+        Object.assign(examDraft, {
+          title:       exam.title,
+          max_retakes: exam.max_retakes ?? 0,
+          questions:   exam.questions.map(q => ({
+            ...q,
+            imagePreview: null,
+            _imageFile:   null,
+            _removeImage: false,
+          })),
+        })
+      } else {
+        examDraft.title = courses.current?.title + ' Exam'
+      }
     }),
   ])
 })
@@ -942,4 +1046,26 @@ onMounted(async () => {
 .attach-info { flex: 1; overflow: hidden; }
 .attach-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .attach-size { font-size: 11px; }
+
+/* ── Question image ── */
+.q-image-row { margin-bottom: 14px; }
+.q-image-drop {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 16px; border: 2px dashed var(--lf-gray-200); border-radius: 6px;
+  cursor: pointer; transition: border-color .15s, background .15s;
+  width: 160px; background: var(--lf-gray-100); text-align: center;
+}
+.q-image-drop:hover { border-color: var(--lf-orange); background: var(--lf-orange-light); }
+.q-image-preview { position: relative; display: inline-block; }
+.q-image-preview img {
+  max-width: 320px; max-height: 200px; border-radius: 6px;
+  border: 1.5px solid var(--lf-gray-200); display: block;
+}
+.q-image-remove {
+  position: absolute; top: -8px; right: -8px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #e53e3e; color: #fff; border: none;
+  font-size: 11px; cursor: pointer; display: flex;
+  align-items: center; justify-content: center; line-height: 1;
+}
 </style>

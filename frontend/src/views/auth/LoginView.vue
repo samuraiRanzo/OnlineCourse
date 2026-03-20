@@ -1,7 +1,7 @@
 <template>
-  <div class="login-page">
+  <div class="lf-auth-page">
     <!-- Left panel -->
-    <div class="login-left">
+    <div class="lf-auth-left">
       <div class="login-logo display">LEARN<span>FORGE</span></div>
       <p class="login-tagline">Build skills. Take exams. Track progress.</p>
       <div class="login-features">
@@ -13,8 +13,8 @@
     </div>
 
     <!-- Right panel -->
-    <div class="login-right">
-      <div class="login-form-wrap">
+    <div class="lf-auth-right">
+      <div class="lf-auth-form-wrap">
         <h2 class="display" style="font-size:36px;letter-spacing:.5px">Welcome back</h2>
         <p class="text-muted text-sm" style="margin-top:4px;margin-bottom:32px">Sign in to continue to LearnForge</p>
 
@@ -79,19 +79,6 @@ function quickLogin(email, password) {
 </script>
 
 <style scoped>
-.login-page  { min-height: 100vh; display: flex; }
-.login-left  {
-  width: 45%; background: var(--lf-black); display: flex; flex-direction: column;
-  justify-content: center; padding: 60px; position: relative; overflow: hidden;
-}
-.login-left::before {
-  content: ''; position: absolute; top: -80px; right: -80px;
-  width: 280px; height: 280px; background: var(--lf-orange); border-radius: 50%; opacity: .15;
-}
-.login-left::after {
-  content: ''; position: absolute; bottom: -60px; left: -60px;
-  width: 200px; height: 200px; background: var(--lf-orange); border-radius: 50%; opacity: .08;
-}
 .login-logo    { font-size: 48px; color: #fff; letter-spacing: 2px; line-height: 1; }
 .login-logo span { color: var(--lf-orange); }
 .login-tagline { color: var(--lf-gray-400); font-size: 15px; margin-top: 12px; max-width: 260px; line-height: 1.5; }
@@ -101,8 +88,6 @@ function quickLogin(email, password) {
   width: 32px; height: 32px; background: rgba(255,107,0,.15); border-radius: 6px;
   display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0;
 }
-.login-right    { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px; }
-.login-form-wrap { width: 100%; max-width: 380px; }
 .login-error    { color: #e53e3e; font-size: 13px; margin-bottom: 10px; }
 .login-divider  { display: flex; align-items: center; gap: 12px; margin: 20px 0; }
 .login-divider hr { flex: 1; border: none; border-top: 1px solid var(--lf-gray-200); }

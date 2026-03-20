@@ -1,6 +1,6 @@
 <template>
   <div class="page-content">
-    <div class="code-entry-wrap">
+    <div class="lf-code-wrap">
       <div class="lf-card" style="text-align:center;margin-bottom:20px">
         <div style="font-size:36px;margin-bottom:8px">📋</div>
         <div class="display" style="font-size:28px;letter-spacing:.5px">Enter Session Code</div>
@@ -15,7 +15,7 @@
           <input
             v-model="code"
             type="text"
-            class="code-input"
+            class="lf-code-input"
             maxlength="6"
             placeholder="XXXXXX"
             @input="code = code.toUpperCase()"
@@ -120,14 +120,6 @@ async function handleCheckIn() {
 </script>
 
 <style scoped>
-.code-entry-wrap { max-width: 480px; margin: 0 auto; }
-.code-input {
-  width: 100%; text-align: center; font-family: var(--lf-font-display);
-  font-size: 40px; letter-spacing: 12px; padding: 20px;
-  border: 3px solid var(--lf-gray-200); border-radius: 8px; outline: none;
-  color: var(--lf-black); text-transform: uppercase; transition: border-color .2s;
-}
-.code-input:focus { border-color: var(--lf-orange); }
 .result-card { border-radius: 8px; padding: 28px; text-align: center; }
 .result-success { border: 1.5px solid #25a244; background: #e6f7ee; }
 .result-warn    { border: 1.5px solid var(--lf-orange); background: var(--lf-orange-light); }

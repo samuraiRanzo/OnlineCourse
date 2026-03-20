@@ -32,6 +32,10 @@ class Question(models.Model):
     exam          = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='questions')
     type          = models.CharField(max_length=10, choices=Type.choices, default=Type.MCQ)
     text          = models.TextField()
+    image         = models.ImageField(
+        upload_to='exam_questions/', null=True, blank=True,
+        help_text='Optional image displayed above the question text'
+    )
     # options and correct_index only used for MCQ questions
     options       = models.JSONField(default=list, blank=True)
     correct_index = models.PositiveIntegerField(null=True, blank=True)

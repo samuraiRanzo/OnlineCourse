@@ -36,7 +36,7 @@
         <button v-if="e.cert" class="cert-badge" @click="openCert(e.cert, e.course)">🎓 View Certificate</button>
       </div>
 
-      <div class="report-grid">
+      <div class="lf-col-2">
         <!-- Left: lessons or attendance -->
         <div>
           <div class="report-section-title">{{ student.student_type === 'online' ? 'Lesson Progress' : 'Attendance' }}</div>
@@ -123,6 +123,9 @@ const results     = computed(() => examsStore.results.filter(r => r.student === 
 const certs       = computed(() => certsStore.certificates.filter(c => c.student === route.params.id))
 const sessions    = computed(() => attStore.sessions)
 
+// FIX M2: store full exam objects (with questions) keyed by course ID
+const examMap = ref({})
+
 const enrichedEnrollments = computed(() => {
   if (!student.value) return []
   return enrollments.value.map(e => {
@@ -140,10 +143,12 @@ const enrichedEnrollments = computed(() => {
   }).filter(Boolean)
 })
 
+// FIX M2: return the actual open questions from the fetched exam
 function openQuestions(e) {
   if (!e.result || !e.course) return []
-  // We'd need the full exam with questions — use result answers keys as proxy
-  return []
+  const exam = examMap.value[e.course.id]
+  if (!exam?.questions) return []
+  return exam.questions.filter(q => q.type === 'open')
 }
 
 function attClass(pct) {
@@ -198,6 +203,16 @@ onMounted(async () => {
     certsStore.fetchCertificates({ student: id }),
     attStore.fetchSessions(),
   ])
+  // FIX M2: fetch the full exam (with questions) for each enrolled course
+  for (const e of coursesStore.enrollments.filter(en => en.student === id)) {
+    try {
+      const exam = await examsStore.fetchExamByCourse(e.course)
+      if (exam) {
+        const full = await examsStore.fetchExam(exam.id)
+        examMap.value[e.course] = full
+      }
+    } catch (_) { /* course has no exam */ }
+  }
 })
 </script>
 
@@ -206,7 +221,6 @@ onMounted(async () => {
 .kpi { background: var(--lf-gray-100); border-radius: 6px; padding: 12px; text-align: center; min-width: 80px; }
 .kpi-val   { font-family: var(--lf-font-display); font-size: 32px; }
 .kpi-label { font-size: 10px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--lf-gray-400); }
-.report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
 .report-section-title { font-family: var(--lf-font-display); font-size: 20px; letter-spacing: .5px; margin-bottom: 12px; }
 .open-review { background: var(--lf-gray-100); border-radius: 6px; padding: 14px; margin-top: 10px; border-left: 3px solid var(--lf-orange); }
 .risk-flag { display: flex; align-items: center; gap: 6px; margin-top: 6px; padding: 7px 10px; background: #fff5f5; border: 1.5px solid #feb2b2; border-radius: 6px; font-size: 12px; color: #c53030; font-weight: 600; }
