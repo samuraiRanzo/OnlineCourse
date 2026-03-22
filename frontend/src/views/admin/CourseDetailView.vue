@@ -1674,8 +1674,7 @@ async function openStudentDrawer(student) {
 }
 
 onMounted(async () => {
-  const id = router.params.id
-  console.log(id)
+  const id = route.params.id
   await courses.fetchCourse(id)
   await Promise.all([
     attStore.fetchSessions(id),
