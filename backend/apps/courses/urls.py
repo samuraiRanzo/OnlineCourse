@@ -11,7 +11,7 @@ router.register(r'completions', LessonCompletionViewSet, basename='completion')
 router.register(r'',            CourseViewSet,           basename='course')
 
 urlpatterns = [
-    # ── Lessons ──────────────────────────────────────────────────────────────
+    # ── Lessons ───────────────────────────────────────────────────────────────
     path('<uuid:course_pk>/lessons/', LessonViewSet.as_view({
         'get': 'list', 'post': 'create',
     }), name='course-lesson-list'),
@@ -25,6 +25,11 @@ urlpatterns = [
     # ── Lesson publish / unpublish ────────────────────────────────────────────
     path('<uuid:course_pk>/lessons/<uuid:pk>/publish/',   LessonViewSet.as_view({'post': 'publish'}),   name='lesson-publish'),
     path('<uuid:course_pk>/lessons/<uuid:pk>/unpublish/', LessonViewSet.as_view({'post': 'unpublish'}), name='lesson-unpublish'),
+
+    # ── Student note on a lesson (GET = fetch/create blank, PATCH = upsert) ───
+    path('<uuid:course_pk>/lessons/<uuid:pk>/note/', LessonViewSet.as_view({
+        'get': 'note', 'patch': 'note',
+    }), name='lesson-note'),
 
     # ── Attachments ───────────────────────────────────────────────────────────
     path('<uuid:course_pk>/lessons/<uuid:lesson_pk>/attachments/', LessonAttachmentViewSet.as_view({

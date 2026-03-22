@@ -13,17 +13,29 @@ export const useQaStore = defineStore('qa', () => {
   function answerUrl(courseId, lessonId, questionId) {
     return `/courses/${courseId}/lessons/${lessonId}/questions/${questionId}/answers/`
   }
-    async function fetchCourseQuestions(courseId) {
-      loading.value = true;
-      try {
-        // This assumes your backend supports a ?course= query param on the questions endpoint
-        // If not, you may need to fetch lessons first and loop, or update the backend view.
-        const { data } = await api.get(`/courses/${courseId}/all-questions/`);
-        questions.value = data.results ?? data;
-      } finally {
-        loading.value = false;
-      }
+
+  /**
+   * Fetch ALL questions across every lesson in a course.
+   * Used by the teacher Q&A inbox tab in CourseDetailView.
+   * Calls the new /api/courses/{id}/all-questions/ endpoint.
+   *
+   * @param {string} courseId
+   * @param {Object} params  — optional { is_resolved: true|false }
+   */
+  async function fetchCourseQuestions(courseId, params = {}) {
+    loading.value = true
+    try {
+      const { data } = await api.get(`/courses/${courseId}/all-questions/`, { params })
+      questions.value = data.results ?? data
+    } finally {
+      loading.value = false
     }
+  }
+
+  /**
+   * Fetch questions for a single lesson.
+   * Used by the student LessonView Q&A panel.
+   */
   async function fetchQuestions(courseId, lessonId) {
     loading.value = true
     try {
@@ -57,7 +69,6 @@ export const useQaStore = defineStore('qa', () => {
 
   async function postAnswer(courseId, lessonId, questionId, body) {
     const { data } = await api.post(answerUrl(courseId, lessonId, questionId), { body })
-    // Push answer into the question's answers array in local state
     const q = questions.value.find(q => q.id === questionId)
     if (q) {
       q.answers.push(data)
@@ -81,7 +92,8 @@ export const useQaStore = defineStore('qa', () => {
 
   return {
     questions, loading,
-    fetchQuestions, postQuestion, deleteQuestion, resolveQuestion,
-    postAnswer, deleteAnswer, clearQuestions,fetchCourseQuestions
+    fetchQuestions, fetchCourseQuestions,
+    postQuestion, deleteQuestion, resolveQuestion,
+    postAnswer, deleteAnswer, clearQuestions,
   }
 })

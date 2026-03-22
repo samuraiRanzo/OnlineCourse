@@ -1,10 +1,8 @@
 <template>
   <div>
-    <Teleport v-if="teleportReady" to="#topbar-actions">
-      <button class="btn btn-primary btn-sm" @click="showCreate = true">+ New Course</button>
-    </Teleport>
-
     <div class="page-content">
+      <button class="btn btn-primary btn-sm" @click="showCreate = true">+ New Course</button>
+
       <!-- Status filter tabs -->
       <div class="filter-tabs">
         <button

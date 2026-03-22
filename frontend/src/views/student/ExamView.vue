@@ -1,627 +1,635 @@
 <template>
-  <div class="page-content">
-    <Teleport v-if="teleportReady" to="#topbar-actions">
-      <button
-          v-if="reviewingId && canTakeExam"
-          class="btn btn-primary btn-sm"
-          style="margin-left:auto"
-          @click="reviewingId = null"
-      >
-        ✏️ New attempt
-      </button>
-    </Teleport>
-    <!-- ── ATTEMPT HISTORY sidebar strip (shown when at least 1 attempt exists) ── -->
-    <div v-if="allAttempts.length" class="attempt-bar">
-      <span class="text-muted text-sm" style="font-weight:600;margin-right:8px">Attempts:</span>
-      <button
-          v-for="r in allAttempts" :key="r.id"
-          class="attempt-pill"
-          :class="{
-          active:  reviewingId === r.id,
-          passed:  r.score >= 60,
-          failed:  r.score < 60,
-        }"
-          @click="reviewingId = r.id"
-      >
-        #{{ r.attempt }} — {{ r.score }}%
-      </button>
+  <!-- Loading -->
+  <div v-if="phase === 'loading'" class="exam-shell">
+    <div class="exam-loading">
+      <div class="spinner" />
+      <p class="text-muted text-sm" style="margin-top:14px">Preparing your exam…</p>
     </div>
+  </div>
 
-    <!-- ── REVIEW a past attempt ── -->
-    <div v-if="reviewingResult" class="lf-exam-wrap">
-      <div class="exam-result" :style="reviewingResult.score >= 60 ? 'border-color:#25a244' : 'border-color:#e53e3e'">
-        <div style="font-size:44px">{{ reviewingResult.score >= 60 ? '🎉' : '📚' }}</div>
-        <div class="result-score display" :style="reviewingResult.score >= 60 ? 'color:#25a244' : 'color:#e53e3e'">
-          {{ reviewingResult.score }}%
-        </div>
-        <div class="result-label text-muted">
-          Attempt #{{ reviewingResult.attempt }} ·
-          {{ reviewingResult.correct }}/{{ reviewingResult.total_mcq }} correct ·
-          {{ formatDate(reviewingResult.submitted_at) }}
-        </div>
-        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px">
-          <span :class="['badge', reviewingResult.score >= 60 ? 'badge-green' : 'badge-red']">
-            {{ reviewingResult.score >= 60 ? 'Passed' : 'Failed' }}
-          </span>
-          <span v-if="hasCert" class="badge badge-green">🎓 Certificate earned</span>
-        </div>
+  <!-- Error -->
+  <div v-else-if="phase === 'error'" class="exam-shell">
+    <div class="exam-card" style="text-align:center;padding:48px">
+      <div style="font-size:48px;margin-bottom:16px">⚠️</div>
+      <h2 class="display" style="font-size:28px;margin-bottom:8px">{{ errorMsg }}</h2>
+      <p class="text-muted text-sm" style="margin-bottom:24px">{{ errorDetail }}</p>
+      <button class="btn btn-ghost" @click="$router.back()">← Go back</button>
+    </div>
+  </div>
 
-        <!-- Retake or cert CTA -->
-        <div style="margin-top:20px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-          <button v-if="hasCert" class="cert-badge" @click="openCert">
-            🎓 View Certificate
-          </button>
-          <button
-              v-if="canTakeExam"
-              class="btn btn-primary"
-              @click="reviewingId = null"
-          >
-            ✏️ Take Attempt #{{ nextAttemptNumber }}
-          </button>
-          <div v-else-if="!canTakeExam && exam" class="badge badge-gray" style="padding:10px 16px">
-            Max {{ exam.max_retakes }} attempt(s) reached
+  <!-- Lobby: student has attempts but can retake, or has never started -->
+  <div v-else-if="phase === 'lobby'" class="exam-shell">
+    <div class="exam-card exam-lobby">
+      <div class="exam-lobby-icon">✍️</div>
+      <h1 class="display" style="font-size:36px;letter-spacing:.6px;margin-bottom:6px">{{ exStore.exam?.title }}</h1>
+      <p class="text-muted text-sm" style="margin-bottom:28px">{{ course?.title }}</p>
+
+      <div class="exam-meta-grid">
+        <div class="exam-meta-item">
+          <div class="exam-meta-label">Questions</div>
+          <div class="exam-meta-val display">{{ exStore.exam?.questions?.length ?? 0 }}</div>
+        </div>
+        <div class="exam-meta-item">
+          <div class="exam-meta-label">Time Limit</div>
+          <div class="exam-meta-val display">
+            {{ exStore.exam?.time_limit_minutes ? exStore.exam.time_limit_minutes + ' min' : 'No limit' }}
           </div>
-          <button class="btn btn-secondary" @click="$router.push(`/my-courses/${courseId}`)">
-            ← Back to Course
-          </button>
+        </div>
+        <div class="exam-meta-item">
+          <div class="exam-meta-label">Passing Score</div>
+          <div class="exam-meta-val display">{{ exStore.exam?.passing_score ?? 60 }}%</div>
+        </div>
+        <div class="exam-meta-item">
+          <div class="exam-meta-label">Attempts Left</div>
+          <div class="exam-meta-val display">
+            {{ attemptsData?.retakes_remaining ?? (exStore.exam?.max_retakes === 0 ? '∞' : '—') }}
+          </div>
         </div>
       </div>
 
-      <!-- Question review -->
-      <div style="margin-top:28px">
-        <div class="section-title" style="margin-bottom:16px">Answer Review</div>
-        <div v-for="(q, qi) in exam?.questions" :key="q.id" class="question-card">
-          <div class="question-num">Q{{ qi + 1 }} — {{ q.type === 'mcq' ? 'Multiple Choice' : 'Open Answer' }}</div>
-          <div class="question-text">{{ q.text }}</div>
-
-          <!-- Image attached to this question by the teacher -->
-          <div v-if="q.image_url" class="question-image">
-            <img :src="q.image_url" alt="Question image"/>
-          </div>
-
-          <div v-if="q.type === 'mcq'" class="option-list">
-            <div
-                v-for="(opt, oi) in q.options" :key="oi"
-                class="option-item"
-                :class="{
-                correct: oi === q.correct_index,
-                wrong:   oi === reviewingResult.answers?.[qi] && oi !== q.correct_index,
-              }"
-                style="cursor:default"
-            >
-              <div class="option-radio"
-                   :style="oi === reviewingResult.answers?.[qi]
-                     ? 'border-color:var(--lf-orange);background:var(--lf-orange)'
-                     : ''"
-              />
-              <span>{{ opt }}</span>
-              <span v-if="oi === q.correct_index" style="margin-left:auto;color:#25a244;font-size:13px;font-weight:600">✓ Correct</span>
-              <span v-else-if="oi === reviewingResult.answers?.[qi]"
-                    style="margin-left:auto;color:#e53e3e;font-size:13px;font-weight:600">✗ Wrong</span>
-            </div>
-          </div>
-
-          <div v-else style="background:var(--lf-gray-100);border-radius:6px;padding:12px;font-size:14px">
-            <strong>Your answer:</strong><br>
-            <span style="color:var(--lf-gray-600);font-style:italic">
-              {{ reviewingResult.answers?.[qi] || 'No answer provided' }}
-            </span>
-            <div style="margin-top:8px">
-              <span
-                  v-if="reviewingResult.open_grades?.[qi]"
-                  :class="['badge', reviewingResult.open_grades[qi] === 'Fail' ? 'badge-red' : 'badge-green']"
-              >{{ reviewingResult.open_grades[qi] }}</span>
-              <span v-else class="badge badge-gray">Awaiting review by teacher</span>
-            </div>
-          </div>
+      <!-- Previous result summary (if any) -->
+      <div v-if="lastAttempt" class="last-attempt-summary" :class="lastAttempt.passed ? 'passed' : 'failed'">
+        <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">
+          Last attempt result
         </div>
+        <div class="display" style="font-size:36px">{{ lastAttempt.score }}%</div>
+        <span class="badge" :class="lastAttempt.passed ? 'badge-green' : 'badge-red'">
+          {{ lastAttempt.passed ? 'Passed ✓' : 'Not Passed' }}
+        </span>
+        <button class="btn btn-ghost btn-sm" style="margin-left:12px" @click="viewAttemptResults(lastAttempt)">
+          View results
+        </button>
+      </div>
+
+      <div class="exam-lobby-actions">
+        <button v-if="canRetake" class="btn btn-primary btn-lg" @click="beginExam">
+          {{ lastAttempt ? '↩ Retake Exam' : 'Start Exam →' }}
+        </button>
+        <p v-else class="text-muted text-sm">No more attempts available.</p>
+        <button class="btn btn-ghost" @click="$router.back()">← Back to course</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Taking the exam -->
+  <div v-else-if="phase === 'taking'" class="exam-shell taking">
+    <!-- Sticky header with timer -->
+    <div class="exam-topbar" :class="{ 'timer-warning': timerPercent < 25, 'timer-danger': timerPercent < 10 }">
+      <div class="exam-topbar-title display">{{ exStore.exam?.title }}</div>
+      <div class="exam-timer-wrap">
+        <div v-if="hasTimeLimit" class="exam-timer">
+          <svg class="timer-ring" viewBox="0 0 36 36">
+            <circle class="timer-ring-bg" cx="18" cy="18" r="15.9" />
+            <circle
+              class="timer-ring-fill"
+              cx="18" cy="18" r="15.9"
+              :stroke-dasharray="`${timerPercent} 100`"
+              :class="{ warning: timerPercent < 25, danger: timerPercent < 10 }"
+            />
+          </svg>
+          <span class="timer-text" :class="{ 'text-danger': timerPercent < 10 }">{{ formattedTime }}</span>
+        </div>
+        <div v-else class="timer-unlimited text-muted text-sm">No time limit</div>
+      </div>
+      <div class="exam-progress-label text-muted text-sm">
+        {{ answeredCount }}/{{ totalQuestions }} answered
       </div>
     </div>
 
-    <!-- ── TAKE EXAM (no reviewing, can attempt) ── -->
-    <div v-else-if="canTakeExam && exam" class="lf-exam-wrap">
-      <div class="exam-header">
-        <div>
-          <div class="exam-title display">{{ exam.title }}</div>
-          <div class="exam-meta text-muted">
-            {{ exam.questions?.length }} questions · {{ course?.title }}
-            <span v-if="allAttempts.length"> · Attempt #{{ nextAttemptNumber }}</span>
-          </div>
-        </div>
-        <div class="exam-progress">
-          <div class="exam-progress-val display">{{ answeredCount }}/{{ exam.questions?.length }}</div>
-          <div class="exam-progress-label text-muted">answered</div>
-        </div>
-      </div>
+    <!-- Progress bar -->
+    <div class="exam-progress-bar">
+      <div class="exam-progress-fill" :style="{ width: progressPercent + '%' }" />
+    </div>
 
-      <!-- Retake warning banner -->
+    <!-- Questions -->
+    <div class="exam-questions">
       <div
-          v-if="allAttempts.length"
-          style="background:var(--lf-orange-light);border:1.5px solid var(--lf-orange);border-radius:8px;padding:14px 18px;margin-bottom:20px;font-size:14px"
+        v-for="(q, qi) in exStore.exam?.questions"
+        :key="qi"
+        class="question-card"
+        :class="{
+          answered: isAnswered(qi),
+          unanswered: !isAnswered(qi) && submitted === false
+        }"
       >
-        📋 You are retaking this exam. This will be attempt #{{ nextAttemptNumber }}
-        <span v-if="exam.max_retakes > 0"> of {{ exam.max_retakes }} allowed</span>.
-        Your previous scores are saved in the history above.
-      </div>
-
-      <div v-for="(q, qi) in exam.questions" :key="q.id" class="question-card">
-        <div class="question-num">Question {{ qi + 1 }} of {{ exam.questions.length }}</div>
+        <div class="question-number">
+          <span class="q-num-badge">Q{{ qi + 1 }}</span>
+          <span class="q-type-tag">{{ q.type === 'mcq' ? 'Multiple Choice' : 'Open Answer' }}</span>
+          <span class="q-points text-muted text-sm">{{ pointsPerQ.toFixed(1) }} pts</span>
+        </div>
         <div class="question-text">{{ q.text }}</div>
 
-        <!-- Image attached to this question by the teacher -->
-        <div v-if="q.image_url" class="question-image">
-          <img :src="q.image_url" alt="Question image"/>
+        <!-- MCQ options -->
+        <div v-if="q.type === 'mcq'" class="mcq-options">
+          <label
+            v-for="(opt, oi) in q.options"
+            :key="oi"
+            class="mcq-option"
+            :class="{ selected: answers[qi]?.selected_index === oi }"
+          >
+            <input
+              type="radio"
+              :name="`q_${qi}`"
+              :value="oi"
+              :checked="answers[qi]?.selected_index === oi"
+              @change="selectOption(qi, oi)"
+            />
+            <span class="mcq-option-letter">{{ 'ABCD'[oi] }}</span>
+            <span class="mcq-option-text">{{ opt }}</span>
+          </label>
         </div>
 
-        <div v-if="q.type === 'mcq'" class="option-list">
-          <div
-              v-for="(opt, oi) in q.options" :key="oi"
-              class="option-item"
-              :class="{ selected: answers[qi] === oi }"
-              @click="answers[qi] = oi"
-          >
-            <div class="option-radio"/>
-            <span>{{ opt }}</span>
+        <!-- Open answer -->
+        <div v-else class="open-answer">
+          <textarea
+            v-model="openAnswers[qi]"
+            class="open-textarea"
+            :placeholder="`Type your answer for Q${qi + 1} here…`"
+            rows="5"
+            @input="markOpenAnswered(qi)"
+          />
+          <div class="text-muted text-sm" style="margin-top:4px;text-align:right">
+            {{ openAnswers[qi]?.length ?? 0 }} chars
           </div>
         </div>
-
-        <textarea
-            v-else
-            class="open-answer"
-            placeholder="Type your answer here…"
-            :value="answers[qi] ?? ''"
-            @input="answers[qi] = $event.target.value"
-        />
       </div>
 
-      <div style="text-align:center;padding:20px 0">
-        <button
-            class="btn btn-primary btn-lg"
-            :disabled="submitting"
-            @click="submitExam"
-        >
-          {{ submitting ? 'Submitting…' : `Submit Attempt #${nextAttemptNumber} →` }}
-        </button>
-        <p class="text-muted text-sm" style="margin-top:8px">
-          Answer all multiple choice questions before submitting.
-        </p>
-      </div>
-    </div>
-
-    <!-- ── NO MORE RETAKES and no result selected ── -->
-    <div v-else-if="!canTakeExam && allAttempts.length && !reviewingId" class="lf-exam-wrap">
-      <div class="exam-result">
-        <div style="font-size:48px">🔒</div>
-        <div class="display" style="font-size:28px;letter-spacing:.5px;margin-top:8px">No more attempts</div>
-        <p class="text-muted" style="margin-top:8px">
-          You have used all {{ exam?.max_retakes }} allowed attempt(s) for this exam.
-        </p>
-        <div style="margin-top:20px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-          <button v-if="hasCert" class="cert-badge" @click="openCert">🎓 View Certificate</button>
-          <button class="btn btn-secondary" @click="$router.push(`/my-courses/${courseId}`)">← Back to Course</button>
+      <!-- Submit section -->
+      <div class="submit-section">
+        <div v-if="unansweredCount > 0" class="unanswered-warning">
+          ⚠️ {{ unansweredCount }} question{{ unansweredCount > 1 ? 's' : '' }} not answered.
+          You can still submit — unanswered questions score 0.
+        </div>
+        <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap">
+          <button class="btn btn-ghost" @click="confirmLeave">Save & Exit</button>
+          <button class="btn btn-primary btn-lg" :disabled="submitting" @click="handleSubmit(false)">
+            {{ submitting ? 'Submitting…' : 'Submit Exam' }}
+          </button>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- ── NO EXAM ── -->
-    <div v-else-if="!exam && !loading" class="empty-state">
-      <span class="empty-icon">📝</span>
-      <h3>No exam for this course</h3>
+  <!-- Results page -->
+  <div v-else-if="phase === 'results'" class="exam-shell">
+    <div class="exam-results-wrap">
+
+      <!-- Score hero -->
+      <div class="results-hero" :class="viewingAttempt?.passed ? 'hero-passed' : 'hero-failed'">
+        <div class="results-score display">{{ viewingAttempt?.score ?? 0 }}%</div>
+        <div class="results-status">
+          {{ viewingAttempt?.passed ? '✓ Passed' : '✗ Not Passed' }}
+        </div>
+        <div v-if="viewingAttempt?.auto_submitted" class="auto-submit-notice">
+          ⏱ Time expired — exam was auto-submitted
+        </div>
+        <div class="results-meta text-sm" style="margin-top:12px;opacity:.8">
+          Passing score: {{ exStore.exam?.passing_score ?? 60 }}%
+          <span v-if="attemptsData?.retakes_remaining !== null && attemptsData?.retakes_remaining !== undefined">
+            · {{ attemptsData.retakes_remaining }} retake{{ attemptsData.retakes_remaining === 1 ? '' : 's' }} remaining
+          </span>
+        </div>
+      </div>
+
+      <!-- Open questions pending -->
+      <div v-if="viewingAttempt?.open_questions_pending" class="pending-banner">
+        ⏳ Some open-answer questions are awaiting teacher review.
+        Your score may increase once graded.
+      </div>
+
+      <!-- Per-question breakdown -->
+      <div class="results-questions">
+        <h3 class="display" style="font-size:22px;margin-bottom:16px">Question Breakdown</h3>
+
+        <div
+          v-for="r in viewingAttempt?.responses"
+          :key="r.id"
+          class="result-q-card"
+          :class="{
+            'result-correct':   r.is_correct === true,
+            'result-incorrect': r.is_correct === false,
+            'result-pending':   r.is_correct === null
+          }"
+        >
+          <div class="result-q-header">
+            <span class="result-q-num">Q{{ r.question_index + 1 }}</span>
+            <span class="result-q-type">{{ r.question_type === 'mcq' ? 'MCQ' : 'Open' }}</span>
+            <span
+              v-if="r.is_correct === true"
+              class="result-q-verdict verdict-correct"
+            >✓ Correct</span>
+            <span
+              v-else-if="r.is_correct === false"
+              class="result-q-verdict verdict-incorrect"
+            >✗ Incorrect</span>
+            <span
+              v-else
+              class="result-q-verdict verdict-pending"
+            >⏳ Pending review</span>
+            <span class="result-q-pts">
+              {{ r.points_earned !== null ? r.points_earned.toFixed(1) : '—' }} / {{ r.max_points.toFixed(1) }} pts
+            </span>
+          </div>
+
+          <div class="result-q-text">{{ r.question_text }}</div>
+
+          <!-- MCQ: show student's choice + correct answer -->
+          <div v-if="r.question_type === 'mcq' && r.options" class="result-mcq-options">
+            <div
+              v-for="(opt, oi) in r.options"
+              :key="oi"
+              class="result-mcq-opt"
+              :class="{
+                'opt-correct':  oi === r.correct_index,
+                'opt-wrong':    oi === r.selected_index && oi !== r.correct_index,
+                'opt-selected': oi === r.selected_index,
+              }"
+            >
+              <span class="opt-letter">{{ 'ABCD'[oi] }}</span>
+              <span class="opt-text">{{ opt }}</span>
+              <span v-if="oi === r.correct_index" class="opt-badge correct">✓ Correct</span>
+              <span v-if="oi === r.selected_index && oi !== r.correct_index" class="opt-badge wrong">Your answer</span>
+              <span v-if="oi === r.selected_index && oi === r.correct_index" class="opt-badge correct">Your answer ✓</span>
+            </div>
+          </div>
+
+          <!-- Open: student's written answer -->
+          <div v-if="r.question_type === 'open'" class="result-open-answer">
+            <div class="result-open-label text-muted text-sm">Your answer:</div>
+            <div class="result-open-text">
+              {{ r.text_answer || '(No answer provided)' }}
+            </div>
+
+            <!-- Teacher feedback -->
+            <div v-if="r.teacher_feedback" class="result-feedback">
+              <div class="result-feedback-label">💬 Teacher feedback:</div>
+              <div class="result-feedback-text">{{ r.teacher_feedback }}</div>
+            </div>
+            <div v-else-if="r.points_earned === null" class="result-feedback-pending">
+              Awaiting teacher review…
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="results-actions">
+        <button v-if="canRetake" class="btn btn-primary" @click="retakeExam">↩ Retake Exam</button>
+        <button class="btn btn-ghost" @click="$router.push(`/my-courses/${courseId}`)">← Back to Course</button>
+      </div>
     </div>
-
   </div>
 </template>
 
 <script setup>
-import {ref, reactive, computed, onMounted} from 'vue'
-import {useRoute, useRouter} from 'vue-router'
-import {useToast} from 'primevue/usetoast'
-import {useAuthStore} from '@/stores/auth'
-import {useCoursesStore} from '@/stores/courses'
-import {useExamsStore} from '@/stores/exams'
-import {useCertificatesStore} from '@/stores/certificates'
-import {useTeleportReady} from '@/composables/useTeleportReady'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useToast }            from 'primevue/usetoast'
+import { useAuthStore }        from '@/stores/auth'
+import { useCoursesStore }     from '@/stores/courses'
+import { useExamsStore }       from '@/stores/exams'
 
-const teleportReady = useTeleportReady()
-const route = useRoute()
-const router = useRouter()
-const toast = useToast()
-const auth = useAuthStore()
-const courses = useCoursesStore()
-const exams = useExamsStore()
-const certs = useCertificatesStore()
+const route    = useRoute()
+const router   = useRouter()
+const toast    = useToast()
+const auth     = useAuthStore()
+const courses  = useCoursesStore()
+const exStore  = useExamsStore()
 
 const courseId = computed(() => route.params.courseId)
-const course = computed(() => courses.current)
-const exam = ref(null)
-const loading = ref(true)
-const submitting = ref(false)
-const answers = reactive({})
+const examId   = computed(() => route.params.examId ?? exStore.exam?.id)
+const course   = computed(() => courses.current)
 
-// Which past attempt the student is reviewing (null = take new exam)
-const reviewingId = ref(null)
+// ── Phase state machine ───────────────────────────────────────────────────────
+// 'loading' | 'error' | 'lobby' | 'taking' | 'results'
+const phase       = ref('loading')
+const errorMsg    = ref('')
+const errorDetail = ref('')
 
-// All attempts for this course, newest first
-const allAttempts = computed(() =>
-    exams.getResultsByCourse(courseId.value)
+// ── Timer ─────────────────────────────────────────────────────────────────────
+const timeRemaining   = ref(0)       // seconds
+const totalTimeSeconds = ref(0)
+const hasTimeLimit    = computed(() => !!exStore.currentAttempt?.time_limit_snapshot)
+const timerPercent    = computed(() =>
+  totalTimeSeconds.value ? (timeRemaining.value / totalTimeSeconds.value) * 100 : 100
 )
-
-const reviewingResult = computed(() =>
-    reviewingId.value
-        ? allAttempts.value.find(r => r.id === reviewingId.value) ?? null
-        : null
-)
-
-const nextAttemptNumber = computed(() => allAttempts.value.length + 1)
-
-const canTakeExam = computed(() => {
-  if (!exam.value) return false
-  const max = exam.value.max_retakes
-  const used = allAttempts.value.length
-  if (max === 0) return true        // unlimited
-  return used < max
+const formattedTime = computed(() => {
+  const m = Math.floor(timeRemaining.value / 60)
+  const s = timeRemaining.value % 60
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 })
+let timerInterval = null
 
-const hasCert = computed(() =>
-    certs.certificates.some(c => c.course === courseId.value)
-)
+function startTimer(attempt) {
+  const snapshot = attempt.time_limit_snapshot
+  if (!snapshot) return
 
-const answeredCount = computed(() =>
-    exam.value?.questions?.filter((q, i) =>
-        q.type === 'open'
-            ? (answers[i] ?? '').trim() !== ''
-            : answers[i] !== undefined
-    ).length ?? 0
-)
+  const startedAt   = new Date(attempt.started_at)
+  const now         = new Date()
+  const elapsedSecs = Math.floor((now - startedAt) / 1000)
+  const totalSecs   = snapshot * 60
 
-async function submitExam() {
-  // Block if all MCQ unanswered
-  const mcqIndexes = (exam.value?.questions ?? [])
-      .map((q, i) => ({q, i}))
-      .filter(({q}) => q.type === 'mcq')
-  const unanswered = mcqIndexes.filter(({i}) => answers[i] === undefined)
-  if (unanswered.length) {
-    toast.add({
-      severity: 'warn',
-      summary: `Answer all ${unanswered.length} remaining multiple choice question(s)`,
-      life: 3000
-    })
+  totalTimeSeconds.value = totalSecs
+  timeRemaining.value    = Math.max(0, totalSecs - elapsedSecs)
+
+  if (timeRemaining.value <= 0) {
+    handleSubmit(true)
     return
   }
 
+  timerInterval = setInterval(() => {
+    timeRemaining.value--
+    if (timeRemaining.value <= 0) {
+      clearInterval(timerInterval)
+      timerInterval = null
+      handleSubmit(true)   // auto-submit
+    }
+  }, 1000)
+}
+
+function stopTimer() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null }
+}
+
+// ── Attempts / results data ───────────────────────────────────────────────────
+const attemptsData  = ref(null)
+const viewingAttempt = ref(null)
+
+const lastAttempt = computed(() => {
+  const list = attemptsData.value?.attempts ?? []
+  return list.length ? list[0] : null
+})
+
+const canRetake = computed(() => {
+  const rem = attemptsData.value?.retakes_remaining
+  return rem === null || rem === undefined || rem > 0
+})
+
+// ── Answer state ──────────────────────────────────────────────────────────────
+// answers[qi] = { question_index, selected_index? }
+const answers      = reactive({})
+// openAnswers[qi] = string
+const openAnswers  = reactive({})
+const submitting   = ref(false)
+
+const totalQuestions = computed(() => exStore.exam?.questions?.length ?? 0)
+const pointsPerQ     = computed(() => totalQuestions.value ? 100 / totalQuestions.value : 0)
+
+function isAnswered(qi) {
+  const q = exStore.exam?.questions?.[qi]
+  if (!q) return false
+  if (q.type === 'mcq') return answers[qi]?.selected_index !== undefined
+  return (openAnswers[qi]?.trim()?.length ?? 0) > 0
+}
+const answeredCount   = computed(() => {
+  const qs = exStore.exam?.questions ?? []
+  return qs.filter((_, i) => isAnswered(i)).length
+})
+const unansweredCount = computed(() => totalQuestions.value - answeredCount.value)
+const progressPercent = computed(() =>
+  totalQuestions.value ? (answeredCount.value / totalQuestions.value) * 100 : 0
+)
+
+function selectOption(qi, optionIndex) {
+  answers[qi] = { question_index: qi, selected_index: optionIndex }
+}
+function markOpenAnswered(qi) {
+  // just triggers reactivity — openAnswers[qi] is already v-modeled
+}
+
+// ── Build responses payload ───────────────────────────────────────────────────
+function buildResponses() {
+  const qs = exStore.exam?.questions ?? []
+  return qs.map((q, qi) => {
+    if (q.type === 'mcq') {
+      return { question_index: qi, selected_index: answers[qi]?.selected_index ?? null }
+    }
+    return { question_index: qi, text_answer: openAnswers[qi] ?? '' }
+  })
+}
+
+// ── Submit ────────────────────────────────────────────────────────────────────
+async function handleSubmit(autoSubmitted = false) {
+  if (submitting.value) return
   submitting.value = true
+  stopTimer()
+
   try {
-    const result = await exams.submitExam(exam.value.id, {...answers})
-    await certs.fetchCertificates()
-    // Automatically open the review for the attempt just submitted
-    reviewingId.value = result.id
-    // Clear answers for a potential future retake
-    Object.keys(answers).forEach(k => delete answers[k])
-    toast.add({
-      severity: 'success',
-      summary: `Attempt #${result.attempt} submitted — Score: ${result.score}%`,
-      life: 4000
-    })
+    const attempt = await exStore.submitAttempt(
+      exStore.exam.id,
+      exStore.currentAttempt.id,
+      buildResponses(),
+      autoSubmitted,
+    )
+    viewingAttempt.value = attempt
+    // Refresh attempts list so retakes_remaining is current
+    attemptsData.value = await exStore.fetchMyAttempts(exStore.exam.id)
+    phase.value = 'results'
   } catch (e) {
-    const detail = e.response?.data?.detail ?? 'Submission failed.'
-    toast.add({severity: 'error', summary: detail, life: 5000})
-  } finally {
+    toast.add({ severity: 'error', summary: e.response?.data?.detail ?? 'Submission failed.', life: 5000 })
     submitting.value = false
+    phase.value = 'taking'   // let them try again
   }
 }
 
-function formatDate(d) {
-  return new Date(d).toLocaleDateString('en-GB', {
-    day: 'numeric', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
+// ── Begin / retake exam ───────────────────────────────────────────────────────
+async function beginExam() {
+  phase.value = 'loading'
+  // Load the student-safe version of the exam (strips correct_index)
+  await exStore.fetchExamForStudent(exStore.exam.id)
+  const attempt = await exStore.startAttempt(exStore.exam.id)
+  startTimer(attempt)
+  phase.value = 'taking'
 }
 
-function openCert() {
-  const cert = certs.certificates.find(c => c.course === courseId.value)
-  const student = auth.user
-  if (!cert || !student || !course.value) return
-  const issued = new Date(cert.issued_at).toLocaleDateString('en-GB', {
-    day: 'numeric', month: 'long', year: 'numeric',
-  })
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
-  <title>Certificate</title>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&display=swap" rel="stylesheet"/>
-  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f5f5f5}
-  .cert{background:#fff;max-width:640px;width:100%;padding:56px;text-align:center;border-radius:8px;box-shadow:0 4px 24px rgba(0,0,0,.1);position:relative}
-  .cert::before{content:'';position:absolute;top:0;left:0;right:0;height:6px;background:#FF6B00}
-  .logo{font-family:'Bebas Neue',sans-serif;font-size:24pt;letter-spacing:3px;margin-bottom:24px}.logo span{color:#FF6B00}
-  .name{font-family:'Bebas Neue',sans-serif;font-size:40pt;letter-spacing:3px;border-bottom:3px solid #FF6B00;padding-bottom:16px;margin-bottom:20px}
-  .course{font-family:'Bebas Neue',sans-serif;font-size:20pt;color:#FF6B00;margin-bottom:20px}
-  .meta{font-size:10pt;color:#aaa;text-transform:uppercase;letter-spacing:.8px}.meta span{color:#0a0a0a;font-weight:600}
-  .no-print{margin-top:24px}@media print{.no-print{display:none}}</style></head>
-  <body><div class="cert">
-  <div class="logo">LEARN<span>FORGE</span></div>
-  <p style="color:#aaa;font-size:10pt;margin-bottom:8px;text-transform:uppercase;letter-spacing:2px">This certificate is presented to</p>
-  <div class="name">${student.name}</div>
-  <p style="color:#555;margin-bottom:8px">for successfully completing</p>
-  <div class="course">${course.value.title}</div>
-  <div class="meta"><p>Issued: <span>${issued}</span></p><p style="margin-top:4px">Certificate ID: <span>${cert.cert_code}</span></p></div>
-  <div class="no-print"><button onclick="window.print()" style="padding:10px 28px;background:#FF6B00;color:#fff;border:none;border-radius:4px;font-weight:600;cursor:pointer">🖨 Print / Save PDF</button></div>
-  </div></body></html>`
-  window.open(URL.createObjectURL(new Blob([html], {type: 'text/html'})), '_blank')
+async function retakeExam() {
+  // Clear previous answers
+  Object.keys(answers).forEach(k => delete answers[k])
+  Object.keys(openAnswers).forEach(k => delete openAnswers[k])
+  await beginExam()
 }
 
+function viewAttemptResults(attempt) {
+  viewingAttempt.value = attempt
+  phase.value = 'results'
+}
+
+function confirmLeave() {
+  if (confirm('Your progress is saved. You can resume this attempt later.')) {
+    stopTimer()
+    router.push(`/my-courses/${courseId.value}`)
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
 onMounted(async () => {
-  await Promise.all([
-    courses.fetchCourse(courseId.value),
-    exams.fetchResults(),
-    certs.fetchCertificates(),
-  ])
-  exam.value = await exams.fetchExamByCourse(courseId.value)
-  loading.value = false
+  try {
+    await courses.fetchCourse(courseId.value)
 
-  // Auto-open the latest attempt for review if the student has already taken it
-  // but can still retake — lets them see their last score before deciding
-  if (allAttempts.value.length && canTakeExam.value) {
-    reviewingId.value = allAttempts.value[0].id
-  } else if (allAttempts.value.length) {
-    reviewingId.value = allAttempts.value[0].id
+    const examObj = await exStore.fetchExamByCourse(courseId.value)
+    if (!examObj) {
+      errorMsg.value    = 'No exam found'
+      errorDetail.value = 'This course does not have an exam yet.'
+      phase.value = 'error'
+      return
+    }
+
+    // Load student's attempt history
+    attemptsData.value = await exStore.fetchMyAttempts(examObj.id)
+
+    // Check if there's an in-progress attempt to resume
+    const inProgress = attemptsData.value?.attempts?.find?.(a => !a.is_submitted)
+    // (The backend /my-attempts/ only returns submitted; /start/ handles in-progress resume)
+    // So we just go to lobby. The /start/ endpoint returns in-progress if it exists.
+
+    phase.value = 'lobby'
+  } catch (e) {
+    const detail = e.response?.data?.detail ?? e.message ?? ''
+    errorMsg.value    = 'Could not load exam'
+    errorDetail.value = detail
+    phase.value = 'error'
   }
 })
+
+onUnmounted(() => stopTimer())
 </script>
 
 <style scoped>
-.attempt-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  background: var(--lf-white);
-  border: 1.5px solid var(--lf-gray-200);
-  border-radius: 8px;
-  padding: 12px 18px;
-  margin-bottom: 20px;
-}
+/* ── Shell ── */
+.exam-shell { min-height: 100vh; background: var(--lf-gray-100); }
+.exam-loading { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:60vh; }
+.spinner { width:40px; height:40px; border-radius:50%; border:3px solid var(--lf-gray-200); border-top-color:var(--lf-orange); animation:spin .7s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
 
-.attempt-pill {
-  padding: 5px 14px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  border: 1.5px solid var(--lf-gray-200);
-  background: var(--lf-gray-100);
-  color: var(--lf-gray-600);
-  transition: all .15s;
-}
+/* ── Lobby ── */
+.exam-card  { background:var(--lf-white); border:1.5px solid var(--lf-gray-200); border-radius:12px; max-width:620px; margin:48px auto; padding:40px; }
+.exam-lobby { text-align:center; }
+.exam-lobby-icon { font-size:64px; margin-bottom:16px; }
+.exam-meta-grid  { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:28px 0; }
+.exam-meta-item  { background:var(--lf-gray-100); border:1.5px solid var(--lf-gray-200); border-radius:8px; padding:14px 10px; }
+.exam-meta-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:var(--lf-gray-400); margin-bottom:6px; }
+.exam-meta-val   { font-size:22px; }
+@media (max-width: 520px) { .exam-meta-grid { grid-template-columns:repeat(2,1fr); } }
 
-.attempt-pill:hover {
-  border-color: var(--lf-black);
-  color: var(--lf-black);
-}
+.last-attempt-summary { padding:16px 20px; border-radius:8px; margin:20px 0; }
+.last-attempt-summary.passed { background:#e6f7ee; border:1.5px solid #25a244; }
+.last-attempt-summary.failed { background:#fff5f5; border:1.5px solid #e53e3e; }
+.exam-lobby-actions { display:flex; flex-direction:column; align-items:center; gap:12px; margin-top:28px; }
 
-.attempt-pill.active {
-  border-color: var(--lf-black);
-  background: var(--lf-black);
-  color: #fff;
-}
+/* ── Topbar (during exam) ── */
+.exam-topbar { position:sticky; top:0; z-index:50; background:var(--lf-white); border-bottom:1.5px solid var(--lf-gray-200); padding:12px 24px; display:flex; align-items:center; gap:16px; transition:background .3s; }
+.exam-topbar.timer-warning { background:#fffdf2; border-bottom-color:var(--lf-orange); }
+.exam-topbar.timer-danger  { background:#fff5f5; border-bottom-color:#e53e3e; animation:pulse-bg 1s ease-in-out infinite; }
+@keyframes pulse-bg { 0%,100% { background:#fff5f5; } 50% { background:#ffe8e8; } }
+.exam-topbar-title  { flex:1; font-size:18px; }
+.exam-timer-wrap    { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.exam-timer         { display:flex; align-items:center; gap:6px; }
+.timer-ring         { width:36px; height:36px; transform:rotate(-90deg); }
+.timer-ring-bg      { fill:none; stroke:var(--lf-gray-200); stroke-width:3; }
+.timer-ring-fill    { fill:none; stroke:var(--lf-orange); stroke-width:3; stroke-linecap:round; transition:stroke-dasharray .8s linear; }
+.timer-ring-fill.warning { stroke:var(--lf-orange); }
+.timer-ring-fill.danger  { stroke:#e53e3e; }
+.timer-text         { font-family:var(--lf-font-display); font-size:20px; letter-spacing:.5px; min-width:52px; }
+.timer-text.text-danger { color:#e53e3e; }
+.timer-unlimited    { font-size:13px; }
+.exam-progress-label { font-size:12px; flex-shrink:0; }
 
-.attempt-pill.passed {
-  border-color: #25a244;
-  color: #25a244;
-  background: #e6f7ee;
-}
+.exam-progress-bar  { height:4px; background:var(--lf-gray-200); }
+.exam-progress-fill { height:100%; background:var(--lf-orange); transition:width .3s ease; }
 
-.attempt-pill.passed.active {
-  background: #25a244;
-  color: #fff;
-}
+/* ── Questions ── */
+.exam-questions { max-width:720px; margin:0 auto; padding:32px 24px; display:flex; flex-direction:column; gap:20px; }
+.question-card  { background:var(--lf-white); border:1.5px solid var(--lf-gray-200); border-radius:10px; padding:24px; transition:border-color .2s; }
+.question-card.answered { border-color:#25a244; }
+.question-number { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+.q-num-badge { background:var(--lf-black); color:#fff; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; }
+.q-type-tag  { font-size:11px; color:var(--lf-gray-400); text-transform:uppercase; letter-spacing:.5px; }
+.q-points    { margin-left:auto; }
+.question-text { font-size:16px; font-weight:500; line-height:1.6; margin-bottom:16px; }
 
-.attempt-pill.failed {
-  border-color: #e53e3e;
-  color: #e53e3e;
-  background: #fff5f5;
-}
+/* MCQ */
+.mcq-options   { display:flex; flex-direction:column; gap:8px; }
+.mcq-option    { display:flex; align-items:center; gap:12px; padding:12px 16px; border:2px solid var(--lf-gray-200); border-radius:8px; cursor:pointer; transition:all .15s; }
+.mcq-option:hover { border-color:var(--lf-orange); background:var(--lf-orange-light); }
+.mcq-option.selected { border-color:var(--lf-orange); background:var(--lf-orange-light); }
+.mcq-option input[type="radio"] { display:none; }
+.mcq-option-letter { width:28px; height:28px; border-radius:50%; background:var(--lf-gray-200); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0; transition:all .15s; }
+.mcq-option.selected .mcq-option-letter { background:var(--lf-orange); color:#fff; }
+.mcq-option-text { font-size:14px; }
 
-.attempt-pill.failed.active {
-  background: #e53e3e;
-  color: #fff;
-}
+/* Open */
+.open-answer   { }
+.open-textarea { width:100%; padding:12px 14px; border:2px solid var(--lf-gray-200); border-radius:8px; font-family:var(--lf-font-body); font-size:14px; line-height:1.7; resize:vertical; outline:none; transition:border-color .15s; }
+.open-textarea:focus { border-color:var(--lf-orange); }
 
-.exam-header {
-  background: var(--lf-black);
-  color: #fff;
-  border-radius: 8px;
-  padding: 28px;
-  margin-bottom: 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
+/* Submit section */
+.submit-section { background:var(--lf-white); border:1.5px solid var(--lf-gray-200); border-radius:10px; padding:24px; text-align:center; }
+.unanswered-warning { background:#fff8e6; border:1.5px solid var(--lf-orange); border-radius:6px; padding:10px 16px; margin-bottom:16px; font-size:14px; color:var(--lf-orange-dark); }
 
-.exam-title {
-  font-size: 30px;
-  letter-spacing: .5px;
-}
+/* ── Results ── */
+.exam-results-wrap { max-width:720px; margin:0 auto; padding:32px 24px; }
+.results-hero { border-radius:12px; padding:40px; text-align:center; margin-bottom:20px; }
+.results-hero.hero-passed { background:linear-gradient(135deg,#e6f7ee,#d4f4e4); border:2px solid #25a244; }
+.results-hero.hero-failed { background:linear-gradient(135deg,#fff5f5,#ffe0e0); border:2px solid #e53e3e; }
+.results-score  { font-size:72px; letter-spacing:2px; }
+.results-status { font-size:22px; font-weight:700; margin-top:6px; }
+.auto-submit-notice { margin-top:10px; font-size:13px; opacity:.7; background:rgba(255,255,255,.5); display:inline-block; padding:4px 12px; border-radius:20px; }
+.pending-banner { background:#fff8e6; border:1.5px solid var(--lf-orange); border-radius:8px; padding:14px 18px; margin-bottom:20px; font-size:14px; color:var(--lf-orange-dark); }
 
-.exam-meta {
-  font-size: 13px;
-  margin-top: 4px;
-  color: #888;
-}
+.results-questions { display:flex; flex-direction:column; gap:14px; margin-bottom:28px; }
+.result-q-card { background:var(--lf-white); border:1.5px solid var(--lf-gray-200); border-radius:10px; overflow:hidden; }
+.result-correct   { border-left:4px solid #25a244; }
+.result-incorrect { border-left:4px solid #e53e3e; }
+.result-pending   { border-left:4px solid var(--lf-orange); }
 
-.exam-progress {
-  text-align: right;
-}
+.result-q-header { display:flex; align-items:center; gap:8px; padding:12px 18px; background:var(--lf-gray-100); flex-wrap:wrap; }
+.result-q-num    { font-weight:700; font-size:13px; }
+.result-q-type   { font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--lf-gray-400); }
+.result-q-verdict { font-size:12px; font-weight:700; padding:2px 10px; border-radius:20px; }
+.verdict-correct  { background:#e6f7ee; color:#25a244; }
+.verdict-incorrect{ background:#fff5f5; color:#e53e3e; }
+.verdict-pending  { background:#fff8e6; color:var(--lf-orange-dark); }
+.result-q-pts    { margin-left:auto; font-size:12px; font-weight:600; color:var(--lf-gray-600); }
+.result-q-text   { padding:14px 18px; font-size:15px; font-weight:500; line-height:1.6; }
 
-.exam-progress-val {
-  font-size: 36px;
-  color: var(--lf-orange);
-  line-height: 1;
-}
+/* MCQ results */
+.result-mcq-options { padding:0 18px 14px; display:flex; flex-direction:column; gap:6px; }
+.result-mcq-opt { display:flex; align-items:center; gap:10px; padding:10px 14px; border:1.5px solid var(--lf-gray-200); border-radius:6px; font-size:14px; }
+.result-mcq-opt.opt-correct  { border-color:#25a244; background:#e6f7ee; }
+.result-mcq-opt.opt-wrong    { border-color:#e53e3e; background:#fff5f5; }
+.opt-letter { width:24px; height:24px; border-radius:50%; background:var(--lf-gray-200); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; }
+.opt-correct .opt-letter  { background:#25a244; color:#fff; }
+.opt-wrong .opt-letter    { background:#e53e3e; color:#fff; }
+.opt-text  { flex:1; }
+.opt-badge { font-size:10px; font-weight:700; padding:2px 8px; border-radius:10px; flex-shrink:0; }
+.opt-badge.correct { background:#25a244; color:#fff; }
+.opt-badge.wrong   { background:#e53e3e; color:#fff; }
 
-.exam-progress-label {
-  font-size: 12px;
-  color: #888;
-}
+/* Open results */
+.result-open-answer { padding:0 18px 14px; }
+.result-open-label  { margin-bottom:4px; }
+.result-open-text   { background:var(--lf-gray-100); border-radius:6px; padding:12px; font-size:14px; line-height:1.7; white-space:pre-wrap; min-height:48px; color:var(--lf-gray-600); font-style:italic; }
+.result-feedback    { margin-top:10px; background:#e6f7ee; border:1.5px solid #25a244; border-radius:6px; padding:12px; }
+.result-feedback-label { font-size:12px; font-weight:700; color:#25a244; margin-bottom:4px; }
+.result-feedback-text  { font-size:14px; line-height:1.6; }
+.result-feedback-pending { margin-top:10px; font-size:13px; color:var(--lf-orange); font-style:italic; }
 
-.question-card {
-  background: var(--lf-white);
-  border: 1.5px solid var(--lf-gray-200);
-  border-radius: 8px;
-  padding: 24px;
-  margin-bottom: 16px;
-}
+.results-actions { display:flex; justify-content:center; gap:12px; flex-wrap:wrap; padding-bottom:32px; }
 
-.question-num {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .8px;
-  color: var(--lf-orange);
-  margin-bottom: 8px;
-}
+/* ── Buttons ── */
+.btn { display:inline-flex; align-items:center; gap:4px; padding:10px 20px; border:none; border-radius:var(--lf-radius); font-family:var(--lf-font-body); font-size:14px; font-weight:600; cursor:pointer; transition:all .15s; white-space:nowrap; text-decoration:none; }
+.btn:disabled { opacity:.55; cursor:not-allowed; }
+.btn-primary { background:var(--lf-orange); color:#fff; }
+.btn-primary:hover:not(:disabled) { background:var(--lf-orange-dark); }
+.btn-ghost { background:transparent; color:var(--lf-gray-600); border:1.5px solid var(--lf-gray-200); }
+.btn-ghost:hover:not(:disabled) { border-color:var(--lf-black); color:var(--lf-black); }
+.btn-lg { padding:14px 32px; font-size:16px; }
+.btn-sm { padding:6px 12px; font-size:12px; }
 
-.question-text {
-  font-size: 16px;
-  font-weight: 500;
-  line-height: 1.5;
-  margin-bottom: 18px;
-}
-
-.option-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.option-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border: 2px solid var(--lf-gray-200);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all .15s;
-  user-select: none;
-}
-
-.option-item:hover {
-  border-color: var(--lf-orange);
-  background: var(--lf-orange-light);
-}
-
-.option-item.selected {
-  border-color: var(--lf-orange);
-  background: var(--lf-orange-light);
-}
-
-.option-item.correct {
-  border-color: #25a244;
-  background: #e6f7ee;
-  cursor: default;
-}
-
-.option-item.wrong {
-  border-color: #e53e3e;
-  background: #fff5f5;
-  cursor: default;
-}
-
-.option-radio {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px solid var(--lf-gray-200);
-  flex-shrink: 0;
-}
-
-.option-item.selected .option-radio {
-  border-color: var(--lf-orange);
-  background: var(--lf-orange);
-}
-
-.open-answer {
-  width: 100%;
-  padding: 12px 14px;
-  border: 2px solid var(--lf-gray-200);
-  border-radius: 6px;
-  font-family: var(--lf-font-body);
-  font-size: 14px;
-  min-height: 100px;
-  resize: vertical;
-  outline: none;
-  transition: border-color .15s;
-}
-
-.open-answer:focus {
-  border-color: var(--lf-orange);
-}
-
-.exam-result {
-  background: var(--lf-white);
-  border: 1.5px solid var(--lf-gray-200);
-  border-radius: 8px;
-  padding: 40px;
-  text-align: center;
-}
-
-.result-score {
-  font-size: 72px;
-  line-height: 1;
-}
-
-.result-label {
-  font-size: 14px;
-  margin-top: 6px;
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 10px 20px;
-  border: none;
-  border-radius: var(--lf-radius);
-  font-family: var(--lf-font-body);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all .18s;
-}
-
-.btn:disabled {
-  opacity: .55;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background: var(--lf-orange);
-  color: #fff;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: var(--lf-orange-dark);
-}
-
-.btn-secondary {
-  background: var(--lf-black);
-  color: #fff;
-}
-
-.btn-lg {
-  padding: 14px 32px;
-  font-size: 16px;
-}
-
-/* ── Question image ── */
-.question-image {
-  margin-bottom: 16px;
-}
-
-.question-image img {
-  max-width: 100%;
-  max-height: 360px;
-  border-radius: 6px;
-  border: 1.5px solid var(--lf-gray-200);
-  display: block;
-}
+/* ── Badges ── */
+.badge       { display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:700; }
+.badge-green { background:#e6f7ee; color:#25a244; }
+.badge-red   { background:#fff5f5; color:#e53e3e; }
+.text-muted  { color:var(--lf-gray-400); }
+.text-sm     { font-size:13px; }
 </style>

@@ -1,61 +1,69 @@
 <template>
-  <aside class="lf-sidebar" :class="{ open: props.open }">
-    <div class="sb-logo">LEARN<span>FORGE</span></div>
+  <!-- Mobile backdrop — tap outside to close -->
+  <div
+    v-if="sidebar.isOpen.value"
+    class="sidebar-backdrop"
+    @click="sidebar.close()"
+  />
 
-    <nav class="sb-nav">
+  <aside class="sidebar" :class="{ 'sidebar-open': sidebar.isOpen.value }">
+    <div class="sidebar-logo">LEARN<span>FORGE</span></div>
+
+    <nav class="sidebar-nav">
       <template v-for="item in navItems" :key="item.route ?? item.section">
-        <div v-if="item.section" class="sb-section">{{ item.section }}</div>
+        <div v-if="item.section" class="nav-section">{{ item.section }}</div>
         <RouterLink
           v-else
           :to="item.route"
-          class="sb-item"
+          class="nav-item"
           :class="{ active: isActive(item.route) }"
-          @click="$emit('close')"
+          @click="sidebar.close()"
         >
-          <span class="sb-icon">{{ item.icon }}</span>
+          <span class="nav-icon">{{ item.icon }}</span>
           {{ item.label }}
-          <span v-if="item.badge && unreadCount > 0" class="sb-badge">{{ unreadCount }}</span>
+          <span v-if="item.badge && unreadCount > 0" class="nav-badge">{{ unreadCount }}</span>
         </RouterLink>
       </template>
     </nav>
 
-    <div class="sb-footer">
-      <div class="sb-user">
-        <div class="lf-avatar lf-avatar-md">{{ avatarLetter }}</div>
-        <div class="sb-user-info">
-          <div class="sb-user-name truncate">{{ auth.user?.name }}</div>
-          <div class="sb-user-role">{{ roleLabel }}</div>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="sidebar-avatar">{{ avatarLetter }}</div>
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-name">{{ auth.user?.name }}</div>
+          <div class="sidebar-user-role">{{ roleLabel }}</div>
         </div>
-        <button class="sb-logout" title="Logout" @click="handleLogout">
-          <i class="pi pi-power-off" />
-        </button>
+        <button class="logout-btn" title="Logout" @click="handleLogout">⏻</button>
       </div>
     </div>
   </aside>
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
-import { useRouter, useRoute }   from 'vue-router'
-import { useAuthStore }          from '@/stores/auth'
-import { useAnnouncementsStore } from '@/stores/announcements'
+import { computed, onMounted, watch } from 'vue'
+import { useRouter, useRoute }         from 'vue-router'
+import { useAuthStore }                from '@/stores/auth'
+import { useAnnouncementsStore }       from '@/stores/announcements'
+import { useSidebar }                  from '@/composables/useSidebar'
 
-const props = defineProps({ open: { type: Boolean, default: false } })
-defineEmits(['close'])
-
-const auth     = useAuthStore()
-const annStore = useAnnouncementsStore()
-const router   = useRouter()
-const route    = useRoute()
+const auth          = useAuthStore()
+const annStore      = useAnnouncementsStore()
+const router        = useRouter()
+const route         = useRoute()
+const sidebar       = useSidebar()
 
 const unreadCount  = computed(() => annStore.unreadCount)
 const avatarLetter = computed(() => auth.user?.name?.charAt(0).toUpperCase() ?? '?')
 const roleLabel    = computed(() => {
-  if (auth.isAdmin)  return 'Teacher'
-  if (auth.isOnsite) return 'On-site Student'
+  if (auth.isAdmin)   return 'Teacher'
+  if (auth.isOnsite)  return 'On-site Student'
   return 'Online Student'
 })
 
+// ── Auto-close on route change (catches programmatic navigation too) ──────────
+watch(() => route.path, () => sidebar.close())
+
+// ── Nav definitions ───────────────────────────────────────────────────────────
 const adminNav = [
   { section: 'Overview' },
   { route: '/dashboard',     icon: '⊞', label: 'Dashboard' },
@@ -101,6 +109,7 @@ function isActive(routePath) {
 }
 
 async function handleLogout() {
+  sidebar.close()
   await auth.logout()
   router.push('/login')
 }
@@ -111,43 +120,91 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Sidebar-specific styles only — layout comes from global .lf-sidebar */
-.sb-logo {
-  padding: 22px 20px;
+/* ── Backdrop (mobile only) ── */
+.sidebar-backdrop {
+  display: none;
+}
+@media (max-width: 768px) {
+  .sidebar-backdrop {
+    display: block;
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 99;
+    animation: fadeIn .15s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+}
+
+/* ── Sidebar shell ── */
+.sidebar {
+  width: 240px;
+  background: var(--lf-black);
+  display: flex; flex-direction: column;
+  position: fixed; top: 0; left: 0;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 100;
+  /* Desktop: always visible */
+  transform: translateX(0);
+  transition: transform .22s cubic-bezier(.4, 0, .2, 1);
+}
+
+/* Mobile: hide off-screen by default, slide in when open */
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
+  }
+  .sidebar.sidebar-open {
+    transform: translateX(0);
+  }
+}
+
+/* ── Logo ── */
+.sidebar-logo {
+  padding: 24px 20px;
   font-family: var(--lf-font-display);
-  font-size: 28px; color: #fff; letter-spacing: 1px;
+  font-size: 28px;
+  color: #fff;
+  letter-spacing: 1px;
   border-bottom: 1px solid #1e1e1e;
   flex-shrink: 0;
 }
-.sb-logo span { color: var(--lf-orange); }
+.sidebar-logo span { color: var(--lf-orange); }
 
-.sb-nav  { padding: 14px 0; flex: 1; overflow-y: auto; }
-.sb-section { padding: 8px 20px 4px; font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #444; }
-
-.sb-item {
+/* ── Nav ── */
+.sidebar-nav  { padding: 16px 0; flex: 1; }
+.nav-section  { padding: 8px 20px 4px; font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: #555; }
+.nav-item {
   display: flex; align-items: center; gap: 10px;
   padding: 10px 20px;
   color: #888; font-size: 14px; font-weight: 500;
-  cursor: pointer; transition: all .15s;
+  cursor: pointer; text-decoration: none;
+  transition: all .15s;
   border-left: 3px solid transparent;
-  text-decoration: none;
 }
-.sb-item:hover  { color: #fff; background: rgba(255,255,255,.05); }
-.sb-item.active { color: #fff; border-left-color: var(--lf-orange); background: rgba(255,107,0,.08); }
-.sb-icon  { width: 18px; text-align: center; font-size: 16px; }
-.sb-badge {
-  margin-left: auto; background: var(--lf-orange); color: #fff;
-  font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 20px;
+.nav-item:hover { color: #fff; background: rgba(255, 255, 255, .05); }
+.nav-item.active { color: #fff; border-left-color: var(--lf-orange); background: rgba(255, 107, 0, .08); }
+.nav-icon { width: 18px; text-align: center; font-size: 16px; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--lf-orange); color: #fff;
+  font-size: 10px; font-weight: 700;
+  padding: 1px 7px; border-radius: 20px;
 }
 
-.sb-footer { padding: 14px 20px; border-top: 1px solid #1e1e1e; flex-shrink: 0; }
-.sb-user   { display: flex; align-items: center; gap: 10px; }
-.sb-user-info { flex: 1; overflow: hidden; }
-.sb-user-name { font-size: 13px; font-weight: 600; color: #fff; }
-.sb-user-role { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: .5px; }
-.sb-logout {
-  background: none; border: none; color: #555; cursor: pointer;
-  font-size: 14px; padding: 6px; border-radius: 4px; transition: color .15s;
+/* ── Footer ── */
+.sidebar-footer  { padding: 16px 20px; border-top: 1px solid #1e1e1e; flex-shrink: 0; }
+.sidebar-user    { display: flex; align-items: center; gap: 10px; }
+.sidebar-avatar  {
+  width: 34px; height: 34px;
+  background: var(--lf-orange); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; color: #fff; font-size: 14px; flex-shrink: 0;
 }
-.sb-logout:hover { color: var(--lf-orange); }
+.sidebar-user-info { flex: 1; overflow: hidden; }
+.sidebar-user-name { font-size: 13px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-user-role { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: .5px; }
+.logout-btn { background: none; border: none; color: #555; cursor: pointer; font-size: 16px; padding: 4px; transition: color .15s; }
+.logout-btn:hover { color: var(--lf-orange); }
 </style>

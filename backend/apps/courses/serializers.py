@@ -1,6 +1,10 @@
 from rest_framework import serializers
 from django.conf import settings
-from .models import Course, Lesson, Enrollment, LessonCompletion, LessonQuestion, LessonAnswer, LessonAttachment
+from django.utils import timezone
+from .models import (
+    Course, Lesson, Enrollment, LessonCompletion,
+    LessonQuestion, LessonAnswer, LessonAttachment, LessonNote,
+)
 
 
 class LessonAttachmentSerializer(serializers.ModelSerializer):
@@ -12,15 +16,16 @@ class LessonAttachmentSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'file', 'file_size', 'extension', 'stream_url', 'uploaded_at']
         read_only_fields = ['id', 'file_size', 'extension', 'stream_url', 'uploaded_at']
         extra_kwargs = {
-            'file': {'write_only': True},
+            'file': {'write_only': True}
         }
 
     def get_stream_url(self, obj):
         if not obj.file or not obj.file.name:
             return None
         request = self.context.get('request')
-        view    = self.context.get('view')
+        from django.urls import reverse
         try:
+            view      = self.context.get('view')
             course_pk = view.kwargs.get('course_pk') if view else None
             lesson_pk = view.kwargs.get('lesson_pk') if view else None
             if course_pk and lesson_pk:
@@ -68,16 +73,13 @@ class LessonSerializer(serializers.ModelSerializer):
 class CourseSerializer(serializers.ModelSerializer):
     lessons      = serializers.SerializerMethodField()
     lesson_count = serializers.SerializerMethodField()
-    # FIX B3: declare exam explicitly so courses without an exam return null
-    # instead of crashing with RelatedObjectDoesNotExist / ImproperlyConfigured
-    exam         = serializers.SerializerMethodField()
 
     class Meta:
         model  = Course
         fields = [
             'id', 'title', 'description', 'icon',
             'attendance_threshold', 'status', 'published_at',
-            'created_at', 'lessons', 'lesson_count', 'exam',
+            'created_at', 'lessons', 'lesson_count', 'exam'
         ]
         read_only_fields = ['id', 'created_at', 'published_at']
 
@@ -94,26 +96,17 @@ class CourseSerializer(serializers.ModelSerializer):
             return obj.lessons.filter(status='published').count()
         return obj.lessons.count()
 
-    def get_exam(self, obj):
-        """Return the exam PK (UUID) if one exists, else null."""
-        try:
-            return str(obj.exam.id)
-        except Exception:
-            return None
-
 
 class CourseListSerializer(serializers.ModelSerializer):
     lesson_count           = serializers.SerializerMethodField()
     published_lesson_count = serializers.SerializerMethodField()
-    # FIX B3: same fix for the list serializer
-    exam                   = serializers.SerializerMethodField()
 
     class Meta:
         model  = Course
         fields = [
             'id', 'title', 'description', 'icon',
             'attendance_threshold', 'status', 'published_at',
-            'created_at', 'lesson_count', 'published_lesson_count', 'exam',
+            'created_at', 'lesson_count', 'published_lesson_count', 'exam'
         ]
         read_only_fields = ['id', 'created_at', 'published_at']
 
@@ -122,12 +115,6 @@ class CourseListSerializer(serializers.ModelSerializer):
 
     def get_published_lesson_count(self, obj):
         return obj.lessons.filter(status='published').count()
-
-    def get_exam(self, obj):
-        try:
-            return str(obj.exam.id)
-        except Exception:
-            return None
 
 
 class EnrollmentSerializer(serializers.ModelSerializer):
@@ -164,7 +151,7 @@ class LessonCompletionSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'completed_at']
 
 
-# ── Q&A ──────────────────────────────────────────────────────────────────
+# ── Q&A ──────────────────────────────────────────────────────────────────────
 
 class LessonAnswerSerializer(serializers.ModelSerializer):
     author_name = serializers.CharField(source='author.name', read_only=True)
@@ -181,13 +168,31 @@ class LessonAnswerSerializer(serializers.ModelSerializer):
 
 
 class LessonQuestionSerializer(serializers.ModelSerializer):
-    author_name  = serializers.CharField(source='author.name', read_only=True)
+    author_name  = serializers.CharField(source='author.name',   read_only=True)
+    # Lesson title — useful for the teacher Q&A inbox view where questions
+    # from all lessons in a course are displayed together.
+    lesson_title = serializers.CharField(source='lesson.title',  read_only=True)
     answers      = LessonAnswerSerializer(many=True, read_only=True)
     answer_count = serializers.IntegerField(source='answers.count', read_only=True)
 
     class Meta:
         model  = LessonQuestion
-        fields = ['id', 'lesson', 'author', 'author_name',
-                  'body', 'is_resolved', 'created_at', 'updated_at',
-                  'answers', 'answer_count']
+        fields = [
+            'id', 'lesson', 'lesson_title', 'author', 'author_name',
+            'body', 'is_resolved', 'created_at', 'updated_at',
+            'answers', 'answer_count',
+        ]
         read_only_fields = ['id', 'author', 'created_at', 'updated_at', 'lesson']
+
+
+# ── Notes ─────────────────────────────────────────────────────────────────────
+
+class LessonNoteSerializer(serializers.ModelSerializer):
+    """
+    Private per-student note on a lesson.
+    student and lesson are set by the view — never supplied by the client.
+    """
+    class Meta:
+        model  = LessonNote
+        fields = ['id', 'student', 'lesson', 'body', 'updated_at']
+        read_only_fields = ['id', 'student', 'lesson', 'updated_at']

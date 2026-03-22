@@ -1,103 +1,162 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import api from '@/api'
 
 export const useExamsStore = defineStore('exams', () => {
-  const exams   = ref([])
-  const results = ref([])
-  const loading = ref(false)
+  // ── State ─────────────────────────────────────────────────────────────────
+  const exam          = ref(null)        // current course's exam (teacher full or student-safe)
+  const currentAttempt = ref(null)       // in-progress or last attempt
+  const myAttemptsData = ref(null)       // { attempts, retakes_remaining, ... }
+  const finalGrade    = ref(null)        // computed final grade for current student
+  const allAttempts   = ref([])          // teacher: all student attempts
+  const allFinalGrades = ref(null)       // teacher: all students' final grades
+  const loading       = ref(false)
 
-  async function fetchExam(id) {
-    const { data } = await api.get(`/exams/${id}/`)
-    return data
-  }
+  // ── Teacher: fetch / save exam ────────────────────────────────────────────
 
   async function fetchExamByCourse(courseId) {
     const { data } = await api.get('/exams/', { params: { course: courseId } })
     const list = data.results ?? data
-    return list.find(e => e.course === courseId) ?? null
+    exam.value = list[0] ?? null
+    return exam.value
   }
 
   async function saveExam(courseId, payload) {
-    const existing = await fetchExamByCourse(courseId)
-    if (existing) {
-      const { data } = await api.put(`/exams/${existing.id}/`, { course: courseId, ...payload })
-      return data
+    if (exam.value?.id) {
+      const { data } = await api.patch(`/exams/${exam.value.id}/`, payload)
+      exam.value = data
+    } else {
+      const { data } = await api.post('/exams/', { course: courseId, ...payload })
+      exam.value = data
     }
-    const { data } = await api.post('/exams/', { course: courseId, ...payload })
+    return exam.value
+  }
+
+  // ── Student: start an attempt ─────────────────────────────────────────────
+
+  async function startAttempt(examId) {
+    loading.value = true
+    try {
+      const { data } = await api.post(`/exams/${examId}/start/`)
+      currentAttempt.value = data
+      return data
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // ── Student: get exam questions (safe — no correct_index) ──────────────────
+
+  async function fetchExamForStudent(examId) {
+    const { data } = await api.get(`/exams/${examId}/for-student/`)
+    exam.value = data
     return data
   }
 
-  async function deleteExam(id) {
-    await api.delete(`/exams/${id}/`)
+  // ── Student: submit ───────────────────────────────────────────────────────
+
+  /**
+   * @param {string} examId
+   * @param {string} attemptId
+   * @param {Array}  responses  [{question_index, selected_index?, text_answer?}]
+   * @param {boolean} autoSubmitted  true when timer expired
+   */
+  async function submitAttempt(examId, attemptId, responses, autoSubmitted = false) {
+    loading.value = true
+    try {
+      const { data } = await api.post(`/exams/${examId}/submit/`, {
+        attempt_id:     attemptId,
+        auto_submitted: autoSubmitted,
+        responses,
+      })
+      currentAttempt.value = data
+      return data
+    } finally {
+      loading.value = false
+    }
   }
 
-  async function submitExam(examId, answers) {
-    const { data } = await api.post('/exams/results/', { exam: examId, answers })
-    results.value.unshift(data)
+  // ── Student: my attempts / results ────────────────────────────────────────
+
+  async function fetchMyAttempts(examId) {
+    const { data } = await api.get(`/exams/${examId}/my-attempts/`)
+    myAttemptsData.value = data
     return data
   }
 
-  async function fetchResults(params = {}) {
-    const { data } = await api.get('/exams/results/', { params })
-    results.value = data.results ?? data
-    return results.value
+  // ── Student: final course grade ───────────────────────────────────────────
+
+  async function fetchFinalGrade(courseId) {
+    const { data } = await api.get(`/courses/${courseId}/final-grade/`)
+    finalGrade.value = data
+    return data
   }
 
-  /**
-   * Returns all attempts for a specific course, newest first.
-   * Used by ExamView to show attempt history and decide retake eligibility.
-   */
-  function getResultsByCourse(courseId) {
-    return results.value
-      .filter(r => r.course_id === courseId)
-      .sort((a, b) => b.attempt - a.attempt)
-  }
+  // ── Teacher: all attempts for grading ─────────────────────────────────────
 
-  /**
-   * Latest attempt for a course — used by dashboards / course cards.
-   */
-  function getLatestResult(courseId) {
-    return getResultsByCourse(courseId)[0] ?? null
-  }
-
-  /**
-   * Upload (or delete) the image for a single question.
-   * examId   — the exam's UUID
-   * questionId — the question's UUID
-   * imageFile  — File object to upload, or null to remove the image
-   */
-  async function uploadQuestionImage(examId, questionId, imageFile) {
-    if (!imageFile) {
-      const { data } = await api.delete(
-        `/exams/${examId}/questions/${questionId}/image/`
-      )
+  async function fetchAllAttempts(examId) {
+    loading.value = true
+    try {
+      const { data } = await api.get(`/exams/${examId}/all-attempts/`)
+      allAttempts.value = data
       return data
+    } finally {
+      loading.value = false
     }
-    const fd = new FormData()
-    fd.append('image', imageFile, imageFile.name)
-    const { data } = await api.post(
-      `/exams/${examId}/questions/${questionId}/image/`,
-      fd
-      // No Content-Type header — Axios sets multipart/form-data with boundary automatically
-    )
-    return data  // { image_url: '...' }
   }
 
-  async function gradeOpenAnswer(resultId, questionIndex, grade) {
-    const { data } = await api.patch(`/exams/results/${resultId}/grade-open/`, {
-      question_index: questionIndex,
-      grade,
+  async function fetchAllFinalGrades(courseId) {
+    loading.value = true
+    try {
+      const { data } = await api.get(`/courses/${courseId}/final-grade/`)
+      allFinalGrades.value = data
+      return data
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // ── Teacher: grade an open question response ──────────────────────────────
+
+  async function gradeResponse(responseId, pointsEarned, teacherFeedback) {
+    const { data } = await api.patch(`/exams/responses/${responseId}/grade/`, {
+      points_earned:    pointsEarned,
+      teacher_feedback: teacherFeedback,
     })
-    const idx = results.value.findIndex(r => r.id === resultId)
-    if (idx > -1) results.value[idx] = data
+    // Update the response in allAttempts in place
+    for (const attempt of allAttempts.value) {
+      const idx = attempt.responses?.findIndex(r => r.id === responseId) ?? -1
+      if (idx > -1) {
+        attempt.responses[idx] = data
+        // Recompute attempt score from the responses array
+        const graded = attempt.responses.filter(r => r.points_earned !== null)
+        const earned = graded.reduce((s, r) => s + r.points_earned, 0)
+        const possible = attempt.responses.reduce((s, r) => s + r.max_points, 0)
+        attempt.score = possible ? Math.round((earned / possible) * 100 * 10) / 10 : 0
+        break
+      }
+    }
     return data
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  function clearExam() {
+    exam.value           = null
+    currentAttempt.value = null
+    myAttemptsData.value = null
+    finalGrade.value     = null
+    allAttempts.value    = []
+    allFinalGrades.value = null
   }
 
   return {
-    exams, results, loading,
-    fetchExam, fetchExamByCourse, saveExam, deleteExam, uploadQuestionImage,
-    submitExam, fetchResults, getResultsByCourse, getLatestResult,
-    gradeOpenAnswer,
+    exam, currentAttempt, myAttemptsData, finalGrade,
+    allAttempts, allFinalGrades, loading,
+    fetchExamByCourse, saveExam,
+    startAttempt, fetchExamForStudent, submitAttempt,
+    fetchMyAttempts, fetchFinalGrade,
+    fetchAllAttempts, fetchAllFinalGrades, gradeResponse,
+    clearExam,
   }
 })

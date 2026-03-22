@@ -164,17 +164,22 @@ def attachment_upload_path(instance, filename):
     """Organise attachments under media/attachments/<lesson_id>/<filename>"""
     return f'attachments/{instance.lesson_id}/{filename}'
 
+
 class LessonAttachment(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    lesson = models.ForeignKey(
+    """
+    A downloadable file attached to a lesson by a teacher.
+    Supports any file type: PDF, DOCX, PPTX, ZIP, images, etc.
+    """
+    id          = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    lesson      = models.ForeignKey(
         Lesson, on_delete=models.CASCADE, related_name='attachments'
     )
-    file = models.FileField(upload_to=attachment_upload_path)
-    name = models.CharField(
-        max_length=255, blank=True,
-        help_text='Display name. Defaults to original filename if left empty.'
+    file        = models.FileField(upload_to=attachment_upload_path)
+    name        = models.CharField(
+        max_length=255,
+        help_text='Display name shown to students — defaults to original filename'
     )
-    file_size = models.PositiveIntegerField(
+    file_size   = models.PositiveIntegerField(
         default=0,
         help_text='File size in bytes — set automatically on upload'
     )
@@ -191,3 +196,27 @@ class LessonAttachment(models.Model):
     def extension(self):
         """e.g. 'pdf', 'docx', 'pptx'"""
         return self.name.rsplit('.', 1)[-1].lower() if '.' in self.name else ''
+
+
+class LessonNote(models.Model):
+    """
+    Private notes written by a student while studying a lesson.
+    One note per student per lesson — upserted, never versioned.
+    """
+    id         = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    student    = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name='lesson_notes'
+    )
+    lesson     = models.ForeignKey(
+        Lesson, on_delete=models.CASCADE, related_name='notes'
+    )
+    body       = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table        = 'lesson_notes'
+        unique_together = ('student', 'lesson')
+
+    def __str__(self):
+        return f'{self.student.name} — note on "{self.lesson.title}"'
