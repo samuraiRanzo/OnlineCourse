@@ -65,9 +65,6 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import CourseCard from '@/components/shared/CourseCard.vue'
 import {useCoursesStore} from '@/stores/courses'
 
-import {useTeleportReady} from '@/composables/useTeleportReady'
-
-const teleportReady = useTeleportReady()
 const store = useCoursesStore()
 const toast = useToast()
 
