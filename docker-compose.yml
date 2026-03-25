@@ -15,15 +15,15 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
-    networks: [learnforge]
+    networks: [ learnforge ]
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB:       ${DB_NAME:-learnforge}
-      POSTGRES_USER:     ${DB_USER:-learnforge_user}
+      POSTGRES_DB: ${DB_NAME:-learnforge}
+      POSTGRES_USER: ${DB_USER:-learnforge_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-learnforge_user} -d ${DB_NAME:-learnforge}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-learnforge_user} -d ${DB_NAME:-learnforge}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -32,12 +32,12 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    networks: [learnforge]
+    networks: [ learnforge ]
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -45,15 +45,15 @@ services:
   # ── Django API ──────────────────────────────────────────────────────────────
   api:
     build:
-      context: .
+      context: /home/ranzo/OnlineCourse/backend
       dockerfile: Dockerfile.api
     restart: unless-stopped
-    networks: [learnforge]
+    networks: [ learnforge ]
     volumes:
       - media_files:/app/media
     env_file: .env
     environment:
-      DB_HOST:           db
+      DB_HOST: db
       CELERY_BROKER_URL: redis://redis:6379/0
     depends_on:
       db:
@@ -70,7 +70,7 @@ services:
                --access-logfile -
                --error-logfile -"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/users/needs-setup/')\""]
+      test: [ "CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/users/needs-setup/')\"" ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -79,15 +79,15 @@ services:
   # ── Celery Worker (video transcoding) ───────────────────────────────────────
   worker:
     build:
-      context: .
+      context: /home/ranzo/OnlineCourse/backend
       dockerfile: Dockerfile.api
     restart: unless-stopped
-    networks: [learnforge]
+    networks: [ learnforge ]
     volumes:
       - media_files:/app/media
     env_file: .env
     environment:
-      DB_HOST:           db
+      DB_HOST: db
       CELERY_BROKER_URL: redis://redis:6379/0
     depends_on:
       db:
@@ -101,10 +101,10 @@ services:
   # ── Nginx + Vue ─────────────────────────────────────────────────────────────
   web:
     build:
-      context: .
+      context: /home/ranzo/OnlineCourse/frontend
       dockerfile: Dockerfile.web
     restart: unless-stopped
-    networks: [learnforge]
+    networks: [ learnforge ]
     volumes:
       - media_files:/media:ro
     ports:
