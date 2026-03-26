@@ -2,7 +2,6 @@ import os
 from pathlib import Path
 from decouple import config
 from datetime import timedelta
-import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -63,28 +62,16 @@ TEMPLATES = [{
 }]
 
 # ─── DATABASE — Supabase PostgreSQL ─────────────────────────────────────────
-# Supabase dashboard → Project Settings → Database → Connection string (URI)
-# Copy the "URI" format — it starts with postgresql://
-DATABASE_URL = config('DATABASE_URL', default=None)
 
-if DATABASE_URL:
-    DATABASES = {
-        'default': dj_database_url.parse(
-            DATABASE_URL,
-            conn_max_age=600,
-            conn_health_checks=True,
-        )
-    }
-else:
-    # Local development fallback
-    DATABASES = {'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME', default='learnforge'),
-        'USER': config('DB_USER', default='postgres'),
-        'PASSWORD': config('DB_PASSWORD', default='password'),
-        'HOST': config('DB_HOST', default='127.0.0.1'),
-        'PORT': config('DB_PORT', default='5432'),
-    }}
+# Local development fallback
+DATABASES = {'default': {
+    'ENGINE': 'django.db.backends.postgresql',
+    'NAME': config('DB_NAME', default='learnforge'),
+    'USER': config('DB_USER', default='postgres'),
+    'PASSWORD': config('DB_PASSWORD', default='password'),
+    'HOST': config('DB_HOST', default='127.0.0.1'),
+    'PORT': config('DB_PORT', default='5432'),
+}}
 
 # ─── AUTH ───────────────────────────────────────────────────────────────────
 AUTH_USER_MODEL = 'users.User'
