@@ -22,7 +22,6 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'django_extensions',
-    'storages',  # django-storages for Supabase Storage
     'apps.users',
     'apps.courses',
     'apps.attendance',
