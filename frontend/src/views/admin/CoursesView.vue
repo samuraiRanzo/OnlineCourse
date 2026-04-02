@@ -1,9 +1,10 @@
 <template>
   <div>
     <div class="page-content">
-      <button class="btn btn-primary btn-sm" @click="showCreate = true">+ New Course</button>
+      <button class="btn btn-primary btn-sm" @click="showCreate = true">
+        {{ $t('courses.actions.newCourse') }}
+      </button>
 
-      <!-- Status filter tabs -->
       <div class="filter-tabs">
         <button
             v-for="tab in filterTabs" :key="tab.key"
@@ -11,7 +12,7 @@
             :class="{ active: statusFilter === tab.key }"
             @click="statusFilter = tab.key"
         >
-          {{ tab.label }}
+          {{ $t(tab.label) }}
           <span class="filter-count">{{ tabCount(tab.key) }}</span>
         </button>
       </div>
@@ -19,8 +20,8 @@
       <EmptyState
           v-if="!filteredCourses.length && !loading"
           icon="📚"
-          title="No courses yet"
-          message="Create your first course."
+          :title="$t('courses.empty.title')"
+          :message="$t('courses.empty.message')"
       />
 
       <div v-else class="courses-grid">
@@ -35,22 +36,35 @@
       </div>
     </div>
 
-    <BaseModal v-model="showCreate" title="Create New Course">
-      <FormGroup label="Course Title"><input v-model="form.title" class="form-control"
-                                             placeholder="e.g. Python Fundamentals"/></FormGroup>
-      <FormGroup label="Description"><textarea v-model="form.description" class="form-control" rows="3"
-                                               placeholder="What will students learn?"/></FormGroup>
-      <FormGroup label="Icon (emoji)"><input v-model="form.icon" class="form-control" placeholder="📚" maxlength="2"/>
+    <BaseModal v-model="showCreate" :title="$t('courses.modal.title')">
+      <FormGroup :label="$t('courses.modal.fields.title')">
+        <input v-model="form.title" class="form-control" :placeholder="$t('courses.modal.fields.titlePlaceholder')"/>
       </FormGroup>
-      <FormGroup label="Attendance Threshold (%)"><input v-model.number="form.attendance_threshold" type="number"
-                                                         class="form-control" min="0" max="100"/></FormGroup>
-      <div
-          style="background:var(--lf-orange-light);border:1.5px solid var(--lf-orange);border-radius:6px;padding:12px;font-size:13px;color:var(--lf-orange-dark)">
-        ℹ️ New courses start as <strong>Draft</strong>. Publish when ready so students can see it.
+
+      <FormGroup :label="$t('courses.modal.fields.description')">
+        <textarea v-model="form.description" class="form-control" rows="3"
+                  :placeholder="$t('courses.modal.fields.descriptionPlaceholder')"/>
+      </FormGroup>
+
+      <FormGroup :label="$t('courses.modal.fields.icon')">
+        <input v-model="form.icon" class="form-control" placeholder="📚" maxlength="2"/>
+      </FormGroup>
+
+      <FormGroup :label="$t('courses.modal.fields.threshold')">
+        <input v-model.number="form.attendance_threshold" type="number" class="form-control" min="0" max="100"/>
+      </FormGroup>
+
+      <div class="modal-info-box">
+        ℹ️ <span
+          v-html="$t('courses.modal.info', { status: `<strong>${$t('courses.filters.drafts')}</strong>` })"></span>
       </div>
+
       <template #footer>
-        <button class="btn btn-ghost" @click="showCreate = false">Cancel</button>
-        <button class="btn btn-primary" :disabled="saving" @click="handleCreate">Create Draft</button>
+        <button class="btn btn-ghost" @click="showCreate = false">{{ $t('courses.actions.cancel') }}</button>
+        <button class="btn btn-primary" :disabled="saving" @click="handleCreate">{{
+            $t('courses.actions.createDraft')
+          }}
+        </button>
       </template>
     </BaseModal>
   </div>
@@ -64,7 +78,9 @@ import FormGroup from '@/components/ui/FormGroup.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import CourseCard from '@/components/shared/CourseCard.vue'
 import {useCoursesStore} from '@/stores/courses'
+import {useI18n} from 'vue-i18n'
 
+const {t} = useI18n()
 const store = useCoursesStore()
 const toast = useToast()
 
@@ -78,9 +94,9 @@ const statusFilter = ref('all')
 const form = reactive({title: '', description: '', icon: '📚', attendance_threshold: 75})
 
 const filterTabs = [
-  {key: 'all', label: 'All'},
-  {key: 'published', label: '✓ Published'},
-  {key: 'draft', label: '✎ Drafts'},
+  {key: 'all', label: 'courses.filters.all'},
+  {key: 'published', label: 'courses.filters.published'},
+  {key: 'draft', label: 'courses.filters.drafts'},
 ]
 
 const filteredCourses = computed(() =>
@@ -99,13 +115,13 @@ async function toggleStatus(course) {
   try {
     if (course.status === 'published') {
       await store.unpublishCourse(course.id)
-      toast.add({severity: 'info', summary: `"${course.title}" moved to draft`, life: 3000})
+      toast.add({severity: 'info', summary: t('courses.notifications.movedToDraft', {title: course.title}), life: 3000})
     } else {
       await store.publishCourse(course.id)
-      toast.add({severity: 'success', summary: `"${course.title}" is now live`, life: 3000})
+      toast.add({severity: 'success', summary: t('courses.notifications.isNowLive', {title: course.title}), life: 3000})
     }
   } catch {
-    toast.add({severity: 'error', summary: 'Failed to update status', life: 3000})
+    toast.add({severity: 'error', summary: t('courses.notifications.updateFailed'), life: 3000})
   } finally {
     toggling.value = null
   }
@@ -118,7 +134,7 @@ async function handleCreate() {
     await store.createCourse({...form})
     Object.assign(form, {title: '', description: '', icon: '📚', attendance_threshold: 75})
     showCreate.value = false
-    toast.add({severity: 'success', summary: 'Course created as draft', life: 3000})
+    toast.add({severity: 'success', summary: t('courses.notifications.createdSuccess'), life: 3000})
   } finally {
     saving.value = false
   }
@@ -128,6 +144,15 @@ onMounted(() => store.fetchCourses())
 </script>
 
 <style scoped>
+.modal-info-box {
+  background: var(--lf-orange-light);
+  border: 1.5px solid var(--lf-orange);
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 13px;
+  color: var(--lf-orange-dark);
+}
+
 .filter-tabs {
   display: flex;
   gap: 8px;

@@ -1,0 +1,239 @@
+{
+  "reports": {
+    "stats": {
+      "students": "Оюутнууд",
+      "atRisk": "Эрсдэлтэй",
+      "needAttention": "Анхаарал хандуулах",
+      "certificates": "Гэрчилгээ",
+      "gradesLoaded": "Дүн орсон",
+      "courses": "Хичээлүүд"
+    },
+    "loading": "Дүнгийн мэдээллийг ачаалж байна…",
+    "card": {
+      "courses": "Хичээлүүд",
+      "grade": "Дүн",
+      "attendance": "Ирц",
+      "lessons": "Үзсэн хувь",
+      "cert": "Гэрчилгээ",
+      "riskLabel": "Дүн хангалтгүй",
+      "riskAttendance": "Ирц {pct}% < 75%"
+    }
+  },
+  "courses": {
+    "actions": {
+      "newCourse": "+ Шинэ хичээл",
+      "cancel": "Цуцлах",
+      "createDraft": "Ноорог үүсгэх"
+    },
+    "filters": {
+      "all": "Бүгд",
+      "published": "✓ Нийтлэгдсэн",
+      "drafts": "✎ Нооргууд"
+    },
+    "empty": {
+      "title": "Хичээл байхгүй байна",
+      "message": "Анхны хичээлээ үүсгэнэ үү."
+    },
+    "modal": {
+      "title": "Шинэ хичээл үүсгэх",
+      "fields": {
+        "title": "Хичээлийн нэр",
+        "titlePlaceholder": "ж.нь: Пайтон үндэс",
+        "description": "Тайлбар",
+        "descriptionPlaceholder": "Оюутнууд юу сурах вэ?",
+        "icon": "Дүрс (emoji)",
+        "threshold": "Ирцийн босго хувь (%)"
+      },
+      "info": "Шинэ хичээл {status} төлөвтэй үүснэ. Бэлэн болмогц нийтэлж оюутнуудад харуулна уу."
+    },
+    "notifications": {
+      "movedToDraft": "\"{title}\" ноорог руу шилжлээ",
+      "isNowLive": "\"{title}\" нийтлэгдлээ",
+      "updateFailed": "Төлөв шинэчлэхэд алдаа гарлаа",
+      "createdSuccess": "Хичээл ноорог байдлаар үүслээ"
+    }
+  },
+  "attendance": {
+    "stats": {
+      "totalSessions": "Нийт ирц бүртгэл",
+      "acrossCourses": "Бүх хичээлийн хэмжээнд",
+      "totalCheckins": "Нийт ирүүлсэн",
+      "allCombined": "Бүх ирцийг нэгтгэвэл",
+      "onsiteStudents": "Танхимын оюутнууд",
+      "tracking": "Ирц хянаж буй",
+      "belowThreshold": "Босго оноо хүрээгүй",
+      "needAttention": "Анхаарах шаардлагатай"
+    },
+    "studentTable": {
+      "title": "Оюутны ирц",
+      "fullReport": "Дэлгэрэнгүй тайлан",
+      "empty": "Танхимын оюутан бүртгэгдээгүй байна.",
+      "headers": {
+        "student": "Оюутан",
+        "course": "Хичээл",
+        "rate": "Хувь",
+        "status": "Төлөв"
+      },
+      "status": {
+        "noData": "Мэдээлэлгүй",
+        "onTrack": "Хэвийн",
+        "below": "Хүрээгүй"
+      }
+    },
+    "sessionsLog": {
+      "title": "Ирцийн бүртгэлийн түүх",
+      "empty": {
+        "title": "Ирц бүртгэгдээгүй байна",
+        "message": "Хичээлийн цэс рүү орж ирц үүсгэнэ үү."
+      },
+      "headers": {
+        "date": "Огноо",
+        "course": "Хичээл",
+        "code": "Код",
+        "attended": "Ирсэн"
+      }
+    }
+  },
+  "announcements": {
+    "stats": {
+      "totalNotices": "Нийт зарлал",
+      "pinned": "Онцолсон"
+    },
+    "courseSection": {
+      "count": "{n} зарлал",
+      "manage": "Удирдах →",
+      "empty": "Энэ хичээлд зарлал ороогүй байна."
+    },
+    "actions": {
+      "pin": "Онцлох",
+      "unpin": "Онцлохоо болих",
+      "delete": "Устгах",
+      "confirmDelete": "Энэ зарлалыг устгах уу?"
+    }
+  },
+  "dashboard": {
+    "stats": {
+      "totalStudents": "Нийт оюутнууд",
+      "online": "цахим",
+      "onsite": "танхим",
+      "courses": "Хичээлүүд",
+      "activeCourses": "Идэвхтэй хичээлүүд",
+      "sessionsHeld": "Явагдсан ирц",
+      "attendanceSessions": "Ирц бүртгэлүүд",
+      "examsTaken": "Өгсөн шалгалтууд",
+      "submittedExams": "Илгээсэн шалгалтууд"
+    },
+    "recentStudents": {
+      "title": "Сүүлд бүртгүүлсэн оюутнууд",
+      "viewAll": "Бүгдийг харах",
+      "empty": "Оюутан бүртгэгдээгүй байна.",
+      "table": {
+        "name": "Нэр",
+        "type": "Төлөв",
+        "email": "Имэйл"
+      }
+    },
+    "recentExams": {
+      "title": "Сүүлийн шалгалтын дүнгүүд",
+      "empty": "Дүн гараагүй байна.",
+      "table": {
+        "student": "Оюутан",
+        "course": "Хичээл",
+        "score": "Оноо"
+      }
+    }
+  },
+  "overview": "",
+  "manage": "Хянах",
+  "common": {
+    "dashboard": "Хянах самбар",
+    "logout": "Гарах"
+  },
+  "sections": {
+    "overview": "Ерөнхий",
+    "manage": "Удирдлага",
+    "learning": "Сургалт",
+    "attendance": "Ирц",
+    "account": "Хувийн бүртгэл"
+  },
+  "nav": {
+    "students": "Оюутнууд",
+    "courses": "Хичээлүүд",
+    "attendance": "Ирц бүртгэл",
+    "reports": "Тайлан",
+    "announcements": "Зарлал",
+    "myCourses": "Миний хичээлүүд",
+    "notices": "Мэдэгдэл",
+    "checkIn": "Ирц өгөх",
+    "myAttendance": "Миний ирц",
+    "profile": "Профайл"
+  },
+  "roles": {
+    "teacher": "Багш",
+    "onsiteStudent": "Танхимын оюутан",
+    "onlineStudent": "Цахим оюутан"
+  },
+  "topbar": {
+    "toggleMenu": "Цэс нээх/хаах",
+    "notifications": "Мэдэгдэл"
+  },
+  "titles": {
+    "dashboard": "Хянах самбар",
+    "students": "Оюутнууд",
+    "courses": "Хичээлүүд",
+    "courseDetail": "Хичээлийн дэлгэрэнгүй",
+    "attendance": "Ирц",
+    "reports": "Тайлан",
+    "studentReport": "Оюутны тайлан",
+    "announcements": "Зарлал",
+    "myCourses": "Миний хичээлүүд",
+    "course": "Хичээл",
+    "lesson": "Хичээлийн сэдэв",
+    "exam": "Шалгалт",
+    "checkIn": "Ирц өгөх",
+    "myAttendance": "Миний ирц",
+    "notices": "Мэдэгдэл",
+    "profile": "Профайл",
+    "default": "LearnForge"
+  },
+  "notifications": {
+    "title": "Мэдэгдэл",
+    "markAllRead": "Бүгдийг уншсанаар тэмдэглэх",
+    "emptyAll": "Одоогоор мэдэгдэл байхгүй байна.",
+    "emptyUnread": "Бүх мэдэгдлийг уншсан байна!",
+    "filters": {
+      "all": "Бүгд",
+      "unread": "Уншаагүй"
+    },
+    "time": {
+      "justNow": "Дөнгөж сая",
+      "minutesAgo": "{n} минутын өмнө",
+      "hoursAgo": "{n} цагийн өмнө",
+      "daysAgo": "{n} өдрийн өмнө"
+    }
+  },
+  "courseCard": {
+    "attendance": "Ирц",
+    "progress": "Явц",
+    "lessons": "{n} Хичээл",
+    "noExam": "Шалгалтгүй",
+    "examResult": "Шалгалт: {score}%",
+    "examPending": "Шалгалт хүлээгдэж буй",
+    "hasExam": "Шалгалттай",
+    "certified": "Гэрчилгээ авсан",
+    "status": {
+      "published": "Нийтлэгдсэн",
+      "draft": "Ноорог",
+      "liveSince": "{date}-с хойш идэвхтэй",
+      "lessonsPublished": "{published}/{total} хичээл нийтлэгдсэн"
+    },
+    "actions": {
+      "publish": "Нийтлэх",
+      "unpublish": "Нийтлэхээ болих"
+    }
+  },
+  "emptyState": {
+    "defaultTitle": "Одоогоор хоосон байна",
+    "defaultMessage": "Дараа дахин шалгана уу."
+  }
+}

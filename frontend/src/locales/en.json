@@ -1,0 +1,239 @@
+{
+  "reports": {
+    "stats": {
+      "students": "Students",
+      "atRisk": "At Risk",
+      "needAttention": "Need attention",
+      "certificates": "Certificates",
+      "gradesLoaded": "Grades Loaded",
+      "courses": "Courses"
+    },
+    "loading": "Loading grade data…",
+    "card": {
+      "courses": "Courses",
+      "grade": "Grade",
+      "attendance": "Attendance",
+      "lessons": "Lessons",
+      "cert": "Cert",
+      "riskLabel": "Low grade",
+      "riskAttendance": "Attendance {pct}% < 75%"
+    }
+  },
+  "courses": {
+    "actions": {
+      "newCourse": "+ New Course",
+      "cancel": "Cancel",
+      "createDraft": "Create Draft"
+    },
+    "filters": {
+      "all": "All",
+      "published": "✓ Published",
+      "drafts": "✎ Drafts"
+    },
+    "empty": {
+      "title": "No courses yet",
+      "message": "Create your first course."
+    },
+    "modal": {
+      "title": "Create New Course",
+      "fields": {
+        "title": "Course Title",
+        "titlePlaceholder": "e.g. Python Fundamentals",
+        "description": "Description",
+        "descriptionPlaceholder": "What will students learn?",
+        "icon": "Icon (emoji)",
+        "threshold": "Attendance Threshold (%)"
+      },
+      "info": "New courses start as {status}. Publish when ready so students can see it."
+    },
+    "notifications": {
+      "movedToDraft": "\"{title}\" moved to draft",
+      "isNowLive": "\"{title}\" is now live",
+      "updateFailed": "Failed to update status",
+      "createdSuccess": "Course created as draft"
+    }
+  },
+  "attendance": {
+    "stats": {
+      "totalSessions": "Total Sessions",
+      "acrossCourses": "Across all courses",
+      "totalCheckins": "Total Check-ins",
+      "allCombined": "All sessions combined",
+      "onsiteStudents": "On-site Students",
+      "tracking": "Tracking attendance",
+      "belowThreshold": "Below Threshold",
+      "needAttention": "Need attention"
+    },
+    "studentTable": {
+      "title": "Student Attendance",
+      "fullReport": "Full Report",
+      "empty": "No on-site students enrolled.",
+      "headers": {
+        "student": "Student",
+        "course": "Course",
+        "rate": "Rate",
+        "status": "Status"
+      },
+      "status": {
+        "noData": "No data",
+        "onTrack": "On track",
+        "below": "Below"
+      }
+    },
+    "sessionsLog": {
+      "title": "Sessions Log",
+      "empty": {
+        "title": "No sessions yet",
+        "message": "Go into a course → Sessions tab to create one."
+      },
+      "headers": {
+        "date": "Date",
+        "course": "Course",
+        "code": "Code",
+        "attended": "Attended"
+      }
+    }
+  },
+  "announcements": {
+    "stats": {
+      "totalNotices": "Total Notices",
+      "pinned": "Pinned"
+    },
+    "courseSection": {
+      "count": "{n} announcement | {n} announcements",
+      "manage": "Manage →",
+      "empty": "No announcements for this course."
+    },
+    "actions": {
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "delete": "Delete",
+      "confirmDelete": "Delete this announcement?"
+    }
+  },
+  "dashboard": {
+    "stats": {
+      "totalStudents": "Total Students",
+      "online": "online",
+      "onsite": "on-site",
+      "courses": "Courses",
+      "activeCourses": "Active courses",
+      "sessionsHeld": "Sessions Held",
+      "attendanceSessions": "Attendance sessions",
+      "examsTaken": "Exams Taken",
+      "submittedExams": "Submitted exams"
+    },
+    "recentStudents": {
+      "title": "Recent Students",
+      "viewAll": "View all",
+      "empty": "No students yet.",
+      "table": {
+        "name": "Name",
+        "type": "Type",
+        "email": "Email"
+      }
+    },
+    "recentExams": {
+      "title": "Recent Exam Results",
+      "empty": "No results yet.",
+      "table": {
+        "student": "Student",
+        "course": "Course",
+        "score": "Score"
+      }
+    }
+  },
+  "overview": "Overview",
+  "manage": "Manage",
+  "common": {
+    "dashboard": "Dashboard",
+    "logout": "Logout"
+  },
+  "sections": {
+    "overview": "Overview",
+    "manage": "Manage",
+    "learning": "Learning",
+    "attendance": "Attendance",
+    "account": "Account"
+  },
+  "nav": {
+    "students": "Students",
+    "courses": "Courses",
+    "attendance": "Attendance",
+    "reports": "Reports",
+    "announcements": "Announcements",
+    "myCourses": "My Courses",
+    "notices": "Notices",
+    "checkIn": "Check In",
+    "myAttendance": "My Attendance",
+    "profile": "Profile"
+  },
+  "roles": {
+    "teacher": "Teacher",
+    "onsiteStudent": "On-site Student",
+    "onlineStudent": "Online Student"
+  },
+  "topbar": {
+    "toggleMenu": "Toggle menu",
+    "notifications": "Notifications"
+  },
+  "titles": {
+    "dashboard": "Dashboard",
+    "students": "Students",
+    "courses": "Courses",
+    "courseDetail": "Course Detail",
+    "attendance": "Attendance",
+    "reports": "Reports",
+    "studentReport": "Student Report",
+    "announcements": "Announcements",
+    "myCourses": "My Courses",
+    "course": "Course",
+    "lesson": "Lesson",
+    "exam": "Exam",
+    "checkIn": "Check In",
+    "myAttendance": "My Attendance",
+    "notices": "Notices",
+    "profile": "Profile",
+    "default": "LearnForge"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all read",
+    "emptyAll": "No notifications yet.",
+    "emptyUnread": "You're all caught up!",
+    "filters": {
+      "all": "All",
+      "unread": "Unread"
+    },
+    "time": {
+      "justNow": "Just now",
+      "minutesAgo": "{n}m ago",
+      "hoursAgo": "{n}h ago",
+      "daysAgo": "{n}d ago"
+    }
+  },
+  "courseCard": {
+    "attendance": "Attendance",
+    "progress": "Progress",
+    "lessons": "{n} Lessons",
+    "noExam": "No Exam",
+    "examResult": "Exam: {score}%",
+    "examPending": "Exam pending",
+    "hasExam": "Has exam",
+    "certified": "Certified",
+    "status": {
+      "published": "Published",
+      "draft": "Draft",
+      "liveSince": "Live since {date}",
+      "lessonsPublished": "{published}/{total} lessons published"
+    },
+    "actions": {
+      "publish": "Publish",
+      "unpublish": "Unpublish"
+    }
+  },
+  "emptyState": {
+    "defaultTitle": "Nothing here yet",
+    "defaultMessage": "Check back later for updates."
+  }
+}

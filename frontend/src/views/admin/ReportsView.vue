@@ -1,38 +1,35 @@
 <template>
   <div class="page-content">
-    <!-- KPI strip -->
     <div class="stats-grid">
       <div class="stat-card accent">
-        <div class="stat-label">Students</div>
+        <div class="stat-label">{{ $t('reports.stats.students') }}</div>
         <div class="stat-value">{{ students.length }}</div>
       </div>
       <div class="stat-card" :class="{ accent: atRisk.length }">
-        <div class="stat-label">At Risk</div>
+        <div class="stat-label">{{ $t('reports.stats.atRisk') }}</div>
         <div class="stat-value" :style="!atRisk.length ? 'color:var(--lf-gray-400)' : ''">
           {{ atRisk.length }}
         </div>
-        <div class="stat-sub">Need attention</div>
+        <div class="stat-sub">{{ $t('reports.stats.needAttention') }}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Certificates</div>
+        <div class="stat-label">{{ $t('reports.stats.certificates') }}</div>
         <div class="stat-value">{{ certs.length }}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Grades Loaded</div>
+        <div class="stat-label">{{ $t('reports.stats.gradesLoaded') }}</div>
         <div class="stat-value" :style="gradesLoading ? 'color:var(--lf-gray-400)' : 'color:#25a244'">
           {{ gradesLoading ? '…' : uniqueCourseIds.length }}
         </div>
-        <div class="stat-sub">Courses</div>
+        <div class="stat-sub">{{ $t('reports.stats.courses') }}</div>
       </div>
     </div>
 
-    <!-- Loading overlay while grades are fetching -->
     <div v-if="gradesLoading" style="text-align:center;padding:40px;color:var(--lf-gray-400);font-size:14px">
       <div class="spinner" style="margin:0 auto 12px"/>
-      Loading grade data…
+      {{ $t('reports.loading') }}
     </div>
 
-    <!-- Student cards -->
     <div v-else class="courses-grid">
       <div
           v-for="s in sortedStudents"
@@ -56,18 +53,11 @@
           </div>
 
           <div class="kpi-row">
-            <!-- Courses enrolled -->
             <div class="kpi">
               <div class="kpi-val">{{ studentEnrollments(s.id).length }}</div>
-              <div class="kpi-label">Courses</div>
+              <div class="kpi-label">{{ $t('reports.card.courses') }}</div>
             </div>
 
-            <!--
-              Final grade (weighted exam + assignments).
-              Uses GET /api/courses/{id}/final-grade/ → students[].final_grade
-              Falls back to exam_score if assignments not yet graded.
-              Previously used the deleted ExamResult model via examsStore.results.
-            -->
             <div class="kpi">
               <div
                   class="kpi-val"
@@ -76,10 +66,9 @@
               >
                 {{ avgFinalGrade(s.id) !== null ? avgFinalGrade(s.id) + '%' : '—' }}
               </div>
-              <div class="kpi-label">Grade</div>
+              <div class="kpi-label">{{ $t('reports.card.grade') }}</div>
             </div>
 
-            <!-- Attendance (onsite) or lesson completion (online) -->
             <div class="kpi">
               <div
                   class="kpi-val"
@@ -89,16 +78,15 @@
                 {{ s.student_type === 'onsite' ? avgAtt(s.id) + '%' : lessonPct(s.id) + '%' }}
               </div>
               <div class="kpi-label">
-                {{ s.student_type === 'onsite' ? 'Attendance' : 'Lessons' }}
+                {{ s.student_type === 'onsite' ? $t('reports.card.attendance') : $t('reports.card.lessons') }}
               </div>
             </div>
 
-            <!-- Certificate -->
             <div class="kpi">
               <div class="kpi-val" :style="studentCerts(s.id).length ? 'color:#25a244' : ''">
                 {{ studentCerts(s.id).length ? '✓' : '—' }}
               </div>
-              <div class="kpi-label">Cert</div>
+              <div class="kpi-label">{{ $t('reports.card.cert') }}</div>
             </div>
           </div>
 
@@ -118,7 +106,9 @@ import {useStudentsStore} from '@/stores/students'
 import {useCoursesStore} from '@/stores/courses'
 import {useCertificatesStore} from '@/stores/certificates'
 import {useAttendanceStore} from '@/stores/attendance'
+import {useI18n} from 'vue-i18n'
 
+const {t} = useI18n()
 const studentsStore = useStudentsStore()
 const coursesStore = useCoursesStore()
 const certsStore = useCertificatesStore()
@@ -129,20 +119,9 @@ const enrollments = computed(() => coursesStore.enrollments)
 const certs = computed(() => certsStore.certificates)
 const sessions = computed(() => attStore.sessions)
 
-// ── Grade data ────────────────────────────────────────────────────────────────
-//
-// Old approach: examsStore.results (ExamResult model — now deleted).
-// New approach: GET /api/courses/{id}/final-grade/ (teacher, no student_id param)
-//   returns { exam_weight, assignment_weight, passing_score,
-//             students: [{ student_id, exam_score, assignment_avg, final_grade, passed }] }
-//
-// We fetch one call per unique course, then look up each student's grade by
-// student_id. This gives us the weighted final grade (exam + assignments).
-
-const gradesByCourse = ref({})  // { [courseId]: { passing_score, students: [...] } }
+const gradesByCourse = ref({})
 const gradesLoading = ref(false)
 
-// All unique course IDs currently in enrollments
 const uniqueCourseIds = computed(() => [
   ...new Set(enrollments.value.map(e => e.course)),
 ])
@@ -157,7 +136,7 @@ async function loadAllGrades() {
             const {data} = await api.get(`/courses/${courseId}/final-grade/`)
             gradesByCourse.value[courseId] = data
           } catch {
-            // Course may have no exam or assignments yet — silently skip
+            // Course may have no data yet
           }
         })
     )
@@ -166,20 +145,12 @@ async function loadAllGrades() {
   }
 }
 
-/**
- * Find a student's grade record within a specific course's data.
- * The backend returns student_id as a UUID string.
- */
 function getStudentGradeForCourse(studentId, courseId) {
   const courseData = gradesByCourse.value[courseId]
   if (!courseData?.students) return null
   return courseData.students.find(s => s.student_id === String(studentId)) ?? null
 }
 
-/**
- * Average final_grade (weighted) across all courses a student is enrolled in.
- * Returns null if no grade data has loaded yet for any enrolled course.
- */
 function avgFinalGrade(studentId) {
   const enrs = studentEnrollments(studentId)
   if (!enrs.length) return null
@@ -190,15 +161,9 @@ function avgFinalGrade(studentId) {
   return Math.round(grades.reduce((a, b) => a + b, 0) / grades.length)
 }
 
-/**
- * Passing threshold for risk assessment.
- * Uses the course's configured passing_score if available, else defaults to 60.
- */
 function passingScore(courseId) {
   return gradesByCourse.value[courseId]?.passing_score ?? 60
 }
-
-// ── Existing helpers (unchanged) ──────────────────────────────────────────────
 
 function studentEnrollments(id) {
   return enrollments.value.filter(e => e.student === id)
@@ -227,28 +192,24 @@ function lessonPct(id) {
   return Math.round(pcts.reduce((a, v) => a + v, 0) / pcts.length)
 }
 
-// ── Risk detection ────────────────────────────────────────────────────────────
-
 function riskFlags(s) {
   const flags = []
-
-  // Grade risk — use final_grade (weighted) per course, check against passing_score
   const enrs = studentEnrollments(s.id)
+
   for (const enr of enrs) {
     const grade = getStudentGradeForCourse(s.id, enr.course)
     if (grade?.final_grade !== null && grade?.final_grade !== undefined) {
       if (grade.final_grade < passingScore(enr.course)) {
-        flags.push('Low grade')
-        break  // only flag once even if multiple courses are failing
+        flags.push(t('reports.card.riskLabel'))
+        break
       }
     }
   }
 
-  // Attendance risk — onsite students only
   if (s.student_type === 'onsite') {
     const att = avgAtt(s.id)
     if (att > 0 && att < 75) {
-      flags.push(`Attendance ${att}% < 75%`)
+      flags.push(t('reports.card.riskAttendance', {pct: att}))
     }
   }
 
@@ -267,10 +228,7 @@ const sortedStudents = computed(() =>
     )
 )
 
-// ── Init ──────────────────────────────────────────────────────────────────────
-
 onMounted(async () => {
-  // Load all base data in parallel first
   await Promise.all([
     studentsStore.fetchStudents(),
     coursesStore.fetchCourses(),
@@ -278,7 +236,6 @@ onMounted(async () => {
     certsStore.fetchCertificates(),
     attStore.fetchSessions(),
   ])
-  // Load grades after enrollments are populated so uniqueCourseIds is correct
   await loadAllGrades()
 })
 </script>

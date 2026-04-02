@@ -1,48 +1,49 @@
 <template>
   <div class="page-content">
 
-    <!-- Stats -->
     <div class="stats-grid">
       <div class="stat-card accent">
-        <div class="stat-label">Total Sessions</div>
+        <div class="stat-label">{{ $t('attendance.stats.totalSessions') }}</div>
         <div class="stat-value">{{ sessions.length }}</div>
-        <div class="stat-sub">Across all courses</div>
+        <div class="stat-sub">{{ $t('attendance.stats.acrossCourses') }}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Total Check-ins</div>
+        <div class="stat-label">{{ $t('attendance.stats.totalCheckins') }}</div>
         <div class="stat-value">{{ totalCheckins }}</div>
-        <div class="stat-sub">All sessions combined</div>
+        <div class="stat-sub">{{ $t('attendance.stats.allCombined') }}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">On-site Students</div>
+        <div class="stat-label">{{ $t('attendance.stats.onsiteStudents') }}</div>
         <div class="stat-value">{{ onsiteStudents.length }}</div>
-        <div class="stat-sub">Tracking attendance</div>
+        <div class="stat-sub">{{ $t('attendance.stats.tracking') }}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Below Threshold</div>
+        <div class="stat-label">{{ $t('attendance.stats.belowThreshold') }}</div>
         <div class="stat-value">{{ atRiskCount }}</div>
-        <div class="stat-sub">Need attention</div>
+        <div class="stat-sub">{{ $t('attendance.stats.needAttention') }}</div>
       </div>
     </div>
 
-    <!-- Two-column layout matching AdminDashboard -->
     <div class="lf-col-2">
 
-      <!-- Left: Per-student attendance summary -->
       <div class="lf-card">
         <div class="section-header" style="margin-bottom:16px">
-          <div class="card-title">Student Attendance</div>
-          <RouterLink to="/reports" class="btn btn-ghost btn-sm">Full Report</RouterLink>
+          <div class="card-title">{{ $t('attendance.studentTable.title') }}</div>
+          <RouterLink to="/reports" class="btn btn-ghost btn-sm">
+            {{ $t('attendance.studentTable.fullReport') }}
+          </RouterLink>
         </div>
-        <p v-if="!onsiteStudents.length" class="text-muted text-sm">No on-site students enrolled.</p>
+        <p v-if="!onsiteStudents.length" class="text-muted text-sm">
+          {{ $t('attendance.studentTable.empty') }}
+        </p>
         <div v-else class="table-wrap">
           <table class="lf-table">
             <thead>
             <tr>
-              <th>Student</th>
-              <th>Course</th>
-              <th>Rate</th>
-              <th>Status</th>
+              <th>{{ $t('attendance.studentTable.headers.student') }}</th>
+              <th>{{ $t('attendance.studentTable.headers.course') }}</th>
+              <th>{{ $t('attendance.studentTable.headers.rate') }}</th>
+              <th>{{ $t('attendance.studentTable.headers.status') }}</th>
             </tr>
             </thead>
             <tbody>
@@ -56,9 +57,15 @@
                     </span>
                 </td>
                 <td>
-                  <span v-if="attStats(s.id, e.course).total === 0" class="badge badge-gray">No data</span>
-                  <span v-else-if="attStats(s.id, e.course).pct >= courseThreshold(e.course)" class="badge badge-green">✓ On track</span>
-                  <span v-else class="badge badge-red">⚠ Below</span>
+                  <span v-if="attStats(s.id, e.course).total === 0" class="badge badge-gray">
+                    {{ $t('attendance.studentTable.status.noData') }}
+                  </span>
+                  <span v-else-if="attStats(s.id, e.course).pct >= courseThreshold(e.course)" class="badge badge-green">
+                    ✓ {{ $t('attendance.studentTable.status.onTrack') }}
+                  </span>
+                  <span v-else class="badge badge-red">
+                    ⚠ {{ $t('attendance.studentTable.status.below') }}
+                  </span>
                 </td>
               </tr>
             </template>
@@ -67,21 +74,24 @@
         </div>
       </div>
 
-      <!-- Right: Sessions log -->
       <div class="lf-card">
         <div class="section-header" style="margin-bottom:16px">
-          <div class="card-title">Sessions Log</div>
+          <div class="card-title">{{ $t('attendance.sessionsLog.title') }}</div>
         </div>
-        <EmptyState v-if="!sessions.length" icon="📋" title="No sessions yet"
-                    message="Go into a course → Sessions tab to create one."/>
+        <EmptyState
+            v-if="!sessions.length"
+            icon="📋"
+            :title="$t('attendance.sessionsLog.empty.title')"
+            :message="$t('attendance.sessionsLog.empty.message')"
+        />
         <div v-else class="table-wrap">
           <table class="lf-table">
             <thead>
             <tr>
-              <th>Date</th>
-              <th>Course</th>
-              <th>Code</th>
-              <th>Attended</th>
+              <th>{{ $t('attendance.sessionsLog.headers.date') }}</th>
+              <th>{{ $t('attendance.sessionsLog.headers.course') }}</th>
+              <th>{{ $t('attendance.sessionsLog.headers.code') }}</th>
+              <th>{{ $t('attendance.sessionsLog.headers.attended') }}</th>
             </tr>
             </thead>
             <tbody>
@@ -106,7 +116,9 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import {useCoursesStore} from '@/stores/courses'
 import {useStudentsStore} from '@/stores/students'
 import {useAttendanceStore} from '@/stores/attendance'
+import {useI18n} from 'vue-i18n'
 
+const {locale} = useI18n()
 const coursesStore = useCoursesStore()
 const studentsStore = useStudentsStore()
 const attStore = useAttendanceStore()
@@ -157,7 +169,12 @@ function attClass(pct) {
 }
 
 function formatDate(d) {
-  return new Date(d).toLocaleDateString('en-GB', {day: '2-digit', month: 'short', year: 'numeric'})
+  const dateLocale = locale.value === 'mn' ? 'mn-MN' : 'en-GB'
+  return new Date(d).toLocaleDateString(dateLocale, {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  })
 }
 
 onMounted(() => Promise.all([
